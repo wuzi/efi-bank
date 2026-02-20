@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 // ========== Split de pagamento Pix ==========
 
@@ -302,4 +303,219 @@ pub struct PixTransactionDetailResponse {
     pub data_hora: Option<String>,
     #[serde(rename = "motivoCancelamento")]
     pub motivo_cancelamento: Option<String>,
+}
+
+// ========== Billing API - Split de Pagamento ==========
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingRepasse {
+    #[serde(rename = "payee_code")]
+    pub payee_code: String,
+    /// transfer percentage, where 9000 equals 90%
+    #[serde(rename = "percentage", skip_serializing_if = "Option::is_none")]
+    pub percentage: Option<i32>,
+    #[serde(rename = "fixed", skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BillingRepasseType {
+    /// fee is deducted only from the account that issued the charge
+    IssuerOnly = 1,
+    /// fee is deducted proportionally according to the percentage defined for each account receiving the transfer
+    Proportional = 2,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingMarketplace {
+    #[serde(rename = "repasses")]
+    pub repasses: Vec<BillingRepasse>,
+    pub mode: BillingRepasseType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingItem {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "value")]
+    pub value: i64,
+    #[serde(rename = "amount")]
+    pub amount: i32,
+    #[serde(rename = "marketplace")]
+    pub marketplace: Option<BillingMarketplace>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingShipping {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "value")]
+    pub value: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingAddress {
+    #[serde(rename = "street")]
+    pub street: Option<String>,
+    #[serde(rename = "number")]
+    pub number: Option<String>,
+    #[serde(rename = "neighborhood")]
+    pub neighborhood: Option<String>,
+    #[serde(rename = "zipcode")]
+    pub zipcode: Option<String>,
+    #[serde(rename = "city")]
+    pub city: Option<String>,
+    #[serde(rename = "complement")]
+    pub complement: Option<String>,
+    #[serde(rename = "state")]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingCustomer {
+    #[serde(rename = "name")]
+    pub name: Option<String>,
+    #[serde(rename = "email")]
+    pub email: Option<String>,
+    #[serde(rename = "cpf")]
+    pub cpf: Option<String>,
+    #[serde(rename = "birth")]
+    pub birth: Option<String>,
+    #[serde(rename = "phone_number")]
+    pub phone_number: Option<String>,
+    #[serde(rename = "address")]
+    pub address: Option<BillingAddress>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBilletConfigurations {
+    #[serde(rename = "fine")]
+    pub fine: Option<i64>,
+    #[serde(rename = "interest")]
+    pub interest: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingBankingBillet {
+    #[serde(rename = "expire_at")]
+    pub expire_at: Option<String>,
+    #[serde(rename = "customer")]
+    pub customer: BillingCustomer,
+    #[serde(rename = "configurations")]
+    pub configurations: Option<BillingBilletConfigurations>,
+    #[serde(rename = "message")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPayment {
+    #[serde(rename = "banking_billet")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banking_billet: Option<BillingBankingBillet>,
+    #[serde(rename = "credit_card")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credit_card: Option<BillingCreditCard>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingCreditCard {
+    #[serde(rename = "customer")]
+    pub customer: BillingCustomer,
+    #[serde(rename = "installments")]
+    pub installments: i32,
+    #[serde(rename = "payment_token")]
+    pub payment_token: String,
+    #[serde(rename = "billing_address")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billing_address: Option<BillingAddress>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeMetadata {
+    /// Your valid URL address that will receive notifications of transaction status changes.
+    /// Maximum of 255 characters.
+    pub notification_url: Option<String>,
+    /// Allows associating an Efí transaction with a specific ID from your system or application,
+    /// allowing you to identify it if you have a specific identification and want to maintain it.
+    /// Maximum of 255 characters.
+    pub custom_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeCreateRequest {
+    #[serde(rename = "items")]
+    pub items: Vec<BillingItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BillingChargeMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeOneStepRequest {
+    #[serde(rename = "items")]
+    pub items: Vec<BillingItem>,
+    #[serde(rename = "shippings")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shippings: Option<Vec<BillingShipping>>,
+    #[serde(rename = "payment")]
+    pub payment: BillingPayment,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BillingChargeMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargePayRequest {
+    #[serde(rename = "payment")]
+    pub payment: BillingPayment,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeResponse {
+    #[serde(rename = "code")]
+    pub code: i32,
+    #[serde(rename = "data")]
+    pub data: BillingChargeData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeData {
+    #[serde(rename = "barcode")]
+    pub barcode: Option<String>,
+    #[serde(rename = "pix")]
+    pub pix: Option<BillingPix>,
+    #[serde(rename = "link")]
+    pub link: Option<String>,
+    #[serde(rename = "billet_link")]
+    pub billet_link: Option<String>,
+    #[serde(rename = "pdf")]
+    pub pdf: Option<BillingPdf>,
+    #[serde(rename = "expire_at")]
+    pub expire_at: Option<String>,
+    #[serde(rename = "charge_id")]
+    pub charge_id: Option<i64>,
+    #[serde(rename = "status")]
+    pub status: Option<String>,
+    #[serde(rename = "total")]
+    pub total: Option<i64>,
+    #[serde(rename = "payment")]
+    pub payment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPix {
+    #[serde(rename = "qrcode")]
+    pub qrcode: Option<String>,
+    #[serde(rename = "qrcode_image")]
+    pub qrcode_image: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingPdf {
+    #[serde(rename = "charge")]
+    pub charge: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingNotificationResponse {
+    #[serde(flatten)]
+    pub data: Value,
 }

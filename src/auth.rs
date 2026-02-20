@@ -30,10 +30,26 @@ struct OAuthResponse {
 impl Client {
     pub fn authenticate(&self) -> Result<(), EfiError> {
         let endpoints = self.endpoints();
+        self.authenticate_with_url(endpoints.pix_api_oauth_token_url)
+    }
 
+    pub fn authenticate_billing(&self) -> Result<(), EfiError> {
+        let endpoints = self.endpoints();
+        self.authenticate_with_url(endpoints.billing_api_oauth_token_url)
+    }
+
+    pub(crate) fn get_valid_access_token(&self) -> Result<String, EfiError> {
+        self.get_valid_access_token_with(Self::authenticate)
+    }
+
+    pub(crate) fn get_valid_billing_access_token(&self) -> Result<String, EfiError> {
+        self.get_valid_access_token_with(Self::authenticate_billing)
+    }
+
+    fn authenticate_with_url(&self, token_url: &str) -> Result<(), EfiError> {
         let response = self
             .http
-            .post(endpoints.oauth_token_url)
+            .post(token_url)
             .basic_auth(&self.id, Some(&self.secret))
             .json(&json!({ "grant_type": "client_credentials" }))
             .send()?;
@@ -58,14 +74,17 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) fn get_valid_access_token(&self) -> Result<String, EfiError> {
+    fn get_valid_access_token_with(
+        &self,
+        authenticate: fn(&Self) -> Result<(), EfiError>,
+    ) -> Result<String, EfiError> {
         let needs_authentication = {
             let token = self.token.lock().map_err(|_| EfiError::AuthUnavailable)?;
             token.as_ref().is_none_or(AccessToken::is_expired)
         };
 
         if needs_authentication {
-            self.authenticate()?;
+            authenticate(self)?;
         }
 
         let token = self.token.lock().map_err(|_| EfiError::AuthUnavailable)?;

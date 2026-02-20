@@ -1,6 +1,6 @@
 [package]
 name = "efi-bank"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A SDK for interacting with the EFI Bank."
 license = "MIT"

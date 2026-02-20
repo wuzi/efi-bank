@@ -185,6 +185,41 @@ impl Client {
         Self::parse_response::<Res>(first_response)
     }
 
+    pub(crate) fn send_authenticated_billing<Req, Res>(
+        &self,
+        method: Method,
+        path: &str,
+        payload: Option<&Req>,
+    ) -> Result<Res, EfiError>
+    where
+        Req: Serialize,
+        Res: DeserializeOwned,
+    {
+        let token = self.get_valid_billing_access_token()?;
+        let first_response = self.send_with_token_typed_base::<Req>(
+            &token,
+            self.endpoints().billing_api_base_url,
+            method.clone(),
+            path,
+            payload,
+        )?;
+
+        if first_response.status() == StatusCode::UNAUTHORIZED {
+            self.authenticate_billing()?;
+            let refreshed_token = self.get_valid_billing_access_token()?;
+            let retry_response = self.send_with_token_typed_base::<Req>(
+                &refreshed_token,
+                self.endpoints().billing_api_base_url,
+                method,
+                path,
+                payload,
+            )?;
+            return Self::parse_response::<Res>(retry_response);
+        }
+
+        Self::parse_response::<Res>(first_response)
+    }
+
     fn send_with_token_typed<Req>(
         &self,
         access_token: &str,
@@ -195,8 +230,27 @@ impl Client {
     where
         Req: Serialize,
     {
-        let endpoints = self.endpoints();
-        let url = format!("{}{}", endpoints.pix_api_base_url, path);
+        self.send_with_token_typed_base(
+            access_token,
+            self.endpoints().pix_api_base_url,
+            method,
+            path,
+            payload,
+        )
+    }
+
+    fn send_with_token_typed_base<Req>(
+        &self,
+        access_token: &str,
+        base_url: &str,
+        method: Method,
+        path: &str,
+        payload: Option<&Req>,
+    ) -> Result<reqwest::blocking::Response, EfiError>
+    where
+        Req: Serialize,
+    {
+        let url = format!("{base_url}{path}");
 
         let mut request = self.http.request(method, url).bearer_auth(access_token);
 

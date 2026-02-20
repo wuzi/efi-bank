@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod billing;
 pub mod client;
 pub mod cob;
 pub mod cobv;
@@ -13,8 +14,12 @@ pub use client::{Client, ClientBuilder};
 pub use environment::{Endpoints, Environment, PRODUCTION_ENDPOINTS, SANDBOX_ENDPOINTS};
 pub use error::EfiError;
 pub use types::{
-    CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor, CobvCalendario,
-    CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
+    BillingAddress, BillingBankingBillet, BillingBilletConfigurations, BillingChargeCreateRequest,
+    BillingChargeData, BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,
+    BillingCreditCard, BillingCustomer, BillingItem, BillingMarketplace,
+    BillingNotificationResponse, BillingPayment, BillingPdf, BillingPix, BillingRepasse,
+    BillingShipping, CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor,
+    CobvCalendario, CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
     PixTransactionResponse, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
     SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
     WebhooksListResponse,
