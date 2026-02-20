@@ -342,7 +342,7 @@ pub struct BillingItem {
     #[serde(rename = "amount")]
     pub amount: i32,
     #[serde(rename = "marketplace")]
-    pub marketplace: Option<BillingMarketplace>,
+    pub marketplace: BillingMarketplace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -372,19 +372,25 @@ pub struct BillingAddress {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BillingCustomer {
-    #[serde(rename = "name")]
-    pub name: Option<String>,
-    #[serde(rename = "email")]
+pub struct BillingJuridicalPerson {
+    pub corporate_name: String,
+    pub cnpj: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingNaturalPerson {
+    pub name: String,
+    pub cpf: String,
     pub email: Option<String>,
-    #[serde(rename = "cpf")]
-    pub cpf: Option<String>,
-    #[serde(rename = "birth")]
     pub birth: Option<String>,
-    #[serde(rename = "phone_number")]
     pub phone_number: Option<String>,
-    #[serde(rename = "address")]
     pub address: Option<BillingAddress>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BillingCustomer {
+    Natural(Box<BillingNaturalPerson>),
+    Juridical(Box<BillingJuridicalPerson>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
