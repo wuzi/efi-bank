@@ -281,6 +281,7 @@ pub struct BillingItem {
     pub name: String,
     pub value: i64,
     pub amount: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub marketplace: Option<BillingMarketplace>,
 }
 
@@ -293,12 +294,19 @@ pub struct BillingShipping {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct BillingAddress {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub street: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub neighborhood: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub zipcode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub complement: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
 }
 
@@ -311,35 +319,49 @@ pub struct BillingJuridicalPerson {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct BillingCustomer {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cpf: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub birth: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<BillingAddress>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub juridical_person: Option<BillingJuridicalPerson>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct BillingBilletConfigurations {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fine: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub interest: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct BillingBankingBillet {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expire_at: Option<String>,
     pub customer: BillingCustomer,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub configurations: Option<BillingBilletConfigurations>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[skip_serializing_none]
 pub struct BillingPayment {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub banking_billet: Option<BillingBankingBillet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub credit_card: Option<BillingCreditCard>,
 }
 
@@ -349,6 +371,7 @@ pub struct BillingCreditCard {
     pub customer: BillingCustomer,
     pub installments: i32,
     pub payment_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
 }
 
@@ -357,10 +380,12 @@ pub struct BillingCreditCard {
 pub struct BillingChargeMetadata {
     /// Your valid URL address that will receive notifications of transaction status changes.
     /// Maximum of 255 characters.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub notification_url: Option<String>,
     /// Allows associating an Efí transaction with a specific ID from your system or application,
     /// allowing you to identify it if you have a specific identification and want to maintain it.
     /// Maximum of 255 characters.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_id: Option<String>,
 }
 
@@ -368,6 +393,7 @@ pub struct BillingChargeMetadata {
 #[skip_serializing_none]
 pub struct BillingChargeCreateRequest {
     pub items: Vec<BillingItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BillingChargeMetadata>,
 }
 
@@ -375,8 +401,10 @@ pub struct BillingChargeCreateRequest {
 #[skip_serializing_none]
 pub struct BillingChargeOneStepRequest {
     pub items: Vec<BillingItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub shippings: Option<Vec<BillingShipping>>,
     pub payment: BillingPayment,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BillingChargeMetadata>,
 }
 
