@@ -261,7 +261,8 @@ pub struct BillingItem {
     pub name: String,
     pub value: i64,
     pub amount: i32,
-    pub marketplace: BillingMarketplace,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub marketplace: Option<BillingMarketplace>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
