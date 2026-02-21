@@ -1,8 +1,7 @@
 use std::sync::Mutex;
 use std::{fs, path::PathBuf};
 
-use reqwest::blocking::Client as HttpClient;
-use reqwest::{Identity, Method, StatusCode};
+use reqwest::{Client as HttpClient, Identity, Method, StatusCode};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -160,75 +159,81 @@ impl Client {
         self.environment.endpoints()
     }
 
-    pub(crate) fn send_authenticated<Req, Res>(
+    pub(crate) async fn send_authenticated<Req, Res>(
         &self,
         method: Method,
         path: &str,
         payload: Option<&Req>,
     ) -> Result<Res, Error>
     where
-        Req: Serialize,
+        Req: Serialize + Sync,
         Res: DeserializeOwned,
     {
-        let token = self.get_valid_access_token()?;
-        let first_response =
-            self.send_with_token_typed::<Req>(&token, method.clone(), path, payload)?;
+        let token = self.get_valid_access_token().await?;
+        let first_response = self
+            .send_with_token_typed::<Req>(&token, method.clone(), path, payload)
+            .await?;
 
         if first_response.status() == StatusCode::UNAUTHORIZED {
-            self.authenticate()?;
-            let refreshed_token = self.get_valid_access_token()?;
-            let retry_response =
-                self.send_with_token_typed::<Req>(&refreshed_token, method, path, payload)?;
-            return Self::parse_response::<Res>(retry_response);
+            self.authenticate().await?;
+            let refreshed_token = self.get_valid_access_token().await?;
+            let retry_response = self
+                .send_with_token_typed::<Req>(&refreshed_token, method, path, payload)
+                .await?;
+            return Self::parse_response::<Res>(retry_response).await;
         }
 
-        Self::parse_response::<Res>(first_response)
+        Self::parse_response::<Res>(first_response).await
     }
 
-    pub(crate) fn send_authenticated_billing<Req, Res>(
+    pub(crate) async fn send_authenticated_billing<Req, Res>(
         &self,
         method: Method,
         path: &str,
         payload: Option<&Req>,
     ) -> Result<Res, Error>
     where
-        Req: Serialize,
+        Req: Serialize + Sync,
         Res: DeserializeOwned,
     {
-        let token = self.get_valid_billing_access_token()?;
-        let first_response = self.send_with_token_typed_base::<Req>(
-            &token,
-            self.endpoints().billing_api_base_url,
-            method.clone(),
-            path,
-            payload,
-        )?;
-
-        if first_response.status() == StatusCode::UNAUTHORIZED {
-            self.authenticate_billing()?;
-            let refreshed_token = self.get_valid_billing_access_token()?;
-            let retry_response = self.send_with_token_typed_base::<Req>(
-                &refreshed_token,
+        let token = self.get_valid_billing_access_token().await?;
+        let first_response = self
+            .send_with_token_typed_base::<Req>(
+                &token,
                 self.endpoints().billing_api_base_url,
-                method,
+                method.clone(),
                 path,
                 payload,
-            )?;
-            return Self::parse_response::<Res>(retry_response);
+            )
+            .await?;
+
+        if first_response.status() == StatusCode::UNAUTHORIZED {
+            self.authenticate_billing().await?;
+            let refreshed_token = self.get_valid_billing_access_token().await?;
+            let retry_response = self
+                .send_with_token_typed_base::<Req>(
+                    &refreshed_token,
+                    self.endpoints().billing_api_base_url,
+                    method,
+                    path,
+                    payload,
+                )
+                .await?;
+            return Self::parse_response::<Res>(retry_response).await;
         }
 
-        Self::parse_response::<Res>(first_response)
+        Self::parse_response::<Res>(first_response).await
     }
 
-    fn send_with_token_typed<Req>(
+    async fn send_with_token_typed<Req>(
         &self,
         access_token: &str,
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<reqwest::blocking::Response, Error>
+    ) -> Result<reqwest::Response, Error>
     where
-        Req: Serialize,
+        Req: Serialize + Sync,
     {
         self.send_with_token_typed_base(
             access_token,
@@ -237,18 +242,19 @@ impl Client {
             path,
             payload,
         )
+        .await
     }
 
-    fn send_with_token_typed_base<Req>(
+    async fn send_with_token_typed_base<Req>(
         &self,
         access_token: &str,
         base_url: &str,
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<reqwest::blocking::Response, Error>
+    ) -> Result<reqwest::Response, Error>
     where
-        Req: Serialize,
+        Req: Serialize + Sync,
     {
         let url = format!("{base_url}{path}");
 
@@ -258,20 +264,20 @@ impl Client {
             request = request.json(json_payload);
         }
 
-        Ok(request.send()?)
+        Ok(request.send().await?)
     }
 
-    fn parse_response<Res>(response: reqwest::blocking::Response) -> Result<Res, Error>
+    async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
     where
         Res: DeserializeOwned,
     {
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().unwrap_or_else(|_| String::new());
+            let body = response.text().await.unwrap_or_else(|_| String::new());
             return Err(Error::RequestFailed { status, body });
         }
 
-        let body = response.text()?;
+        let body = response.text().await?;
         if body.trim().is_empty() {
             return Err(Error::EmptyResponse);
         }

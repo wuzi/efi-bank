@@ -8,30 +8,33 @@ use crate::types::{
 };
 
 impl Client {
-    pub fn billing_charge_create(
+    pub async fn billing_charge_create(
         &self,
         payload: &BillingChargeCreateRequest,
     ) -> Result<BillingChargeResponse, Error> {
         self.send_authenticated_billing(Method::POST, "/v1/charge", Some(payload))
+            .await
     }
 
-    pub fn billing_charge_one_step(
+    pub async fn billing_charge_one_step(
         &self,
         payload: &BillingChargeOneStepRequest,
     ) -> Result<BillingChargeResponse, Error> {
         self.send_authenticated_billing(Method::POST, "/v1/charge/one-step", Some(payload))
+            .await
     }
 
-    pub fn billing_charge_pay(
+    pub async fn billing_charge_pay(
         &self,
         charge_id: i64,
         payload: &BillingChargePayRequest,
     ) -> Result<BillingChargeResponse, Error> {
         let path = format!("/v1/charge/{charge_id}/pay");
         self.send_authenticated_billing(Method::POST, &path, Some(payload))
+            .await
     }
 
-    pub fn billing_notification_get(
+    pub async fn billing_notification_get(
         &self,
         token: &str,
     ) -> Result<BillingNotificationResponse, Error> {
@@ -41,5 +44,6 @@ impl Client {
             &path,
             None,
         )
+        .await
     }
 }

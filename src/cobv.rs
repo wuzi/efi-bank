@@ -5,26 +5,38 @@ use crate::error::Error;
 use crate::types::{CobvPayload, CobvResponse};
 
 impl Client {
-    pub fn cobv_create(&self, payload: &CobvPayload) -> Result<CobvResponse, Error> {
+    pub async fn cobv_create(&self, payload: &CobvPayload) -> Result<CobvResponse, Error> {
         self.send_authenticated(Method::POST, "/v2/cobv", Some(payload))
+            .await
     }
 
-    pub fn cobv_update(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, Error> {
+    pub async fn cobv_update(
+        &self,
+        txid: &str,
+        payload: &CobvPayload,
+    ) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated(Method::PUT, &path, Some(payload))
+            .await
     }
 
-    pub fn cobv_patch(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, Error> {
+    pub async fn cobv_patch(
+        &self,
+        txid: &str,
+        payload: &CobvPayload,
+    ) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated(Method::PATCH, &path, Some(payload))
+            .await
     }
 
-    pub fn cobv_get(&self, txid: &str) -> Result<CobvResponse, Error> {
+    pub async fn cobv_get(&self, txid: &str) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated::<serde_json::Value, CobvResponse>(Method::GET, &path, None)
+            .await
     }
 
-    pub fn cobv_list(
+    pub async fn cobv_list(
         &self,
         cpf: Option<&str>,
         status: Option<&str>,
@@ -49,5 +61,6 @@ impl Client {
         }
 
         self.send_authenticated::<serde_json::Value, Vec<CobvResponse>>(Method::GET, &path, None)
+            .await
     }
 }

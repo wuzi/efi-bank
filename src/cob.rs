@@ -5,26 +5,30 @@ use crate::error::Error;
 use crate::types::{CobPayload, CobResponse};
 
 impl Client {
-    pub fn cob_create(&self, payload: &CobPayload) -> Result<CobResponse, Error> {
+    pub async fn cob_create(&self, payload: &CobPayload) -> Result<CobResponse, Error> {
         self.send_authenticated(Method::POST, "/v2/cob", Some(payload))
+            .await
     }
 
-    pub fn cob_update(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
+    pub async fn cob_update(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
         let path = format!("/v2/cob/{txid}");
         self.send_authenticated(Method::PUT, &path, Some(payload))
+            .await
     }
 
-    pub fn cob_patch(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
+    pub async fn cob_patch(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
         let path = format!("/v2/cob/{txid}");
         self.send_authenticated(Method::PATCH, &path, Some(payload))
+            .await
     }
 
-    pub fn cob_get(&self, txid: &str) -> Result<CobResponse, Error> {
+    pub async fn cob_get(&self, txid: &str) -> Result<CobResponse, Error> {
         let path = format!("/v2/cob/{txid}");
         self.send_authenticated::<serde_json::Value, CobResponse>(Method::GET, &path, None)
+            .await
     }
 
-    pub fn cob_list(
+    pub async fn cob_list(
         &self,
         cpf: Option<&str>,
         status: Option<&str>,
@@ -49,5 +53,6 @@ impl Client {
         }
 
         self.send_authenticated::<serde_json::Value, Vec<CobResponse>>(Method::GET, &path, None)
+            .await
     }
 }

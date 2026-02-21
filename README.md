@@ -21,12 +21,17 @@ cargo install efi-bank
 ```rust
 use efi_bank::{ClientBuilder, Environment};
 
+#[tokio::main]
+async fn main() -> Result<(), efi_bank::Error> {
 // Create a client with credentials and mTLS certificate
 let client = ClientBuilder::new()
     .credentials("your-client-id", "your-client-secret")
     .environment(Environment::Sandbox)
     .pkcs12_file("/path/to/certificate.p12", "certificate-password")
     .build()?;
+
+Ok(())
+}
 ```
 
 Authentication is automatic, the client handles token retrieval and refresh transparently when making a request.
@@ -72,11 +77,13 @@ let split_payload = SplitPayload {
     },
 };
 
-let config_response = client.split_create_config(&split_payload)?;
+let config_response = client.split_create_config(&split_payload).await?;
 println!("Split config created: {}", config_response.id);
 
 // Link the split config to a charge
-let link_response = client.split_link_cob("txid123", &config_response.id)?;
+let link_response = client
+    .split_link_cob("txid123", &config_response.id)
+    .await?;
 println!("Link status: {}", link_response.status);
 ```
 
@@ -109,12 +116,12 @@ let cob_payload = CobPayload {
     info_adicionais: None,
 };
 
-let cob_response = client.cob_create(&cob_payload)?;
+let cob_response = client.cob_create(&cob_payload).await?;
 println!("Charge created with txid: {}", cob_response.txid);
 println!("QR Code: {}", cob_response.br.unwrap_or_default());
 
 // Retrieve a specific charge
-let charge = client.cob_get(&cob_response.txid)?;
+let charge = client.cob_get(&cob_response.txid).await?;
 println!("Charge status: {}", charge.status.unwrap_or_default());
 
 // List all charges (with optional filters)
@@ -122,7 +129,8 @@ let charges = client.cob_list(
     Some("12345678900"),  // CPF filter
     Some("ATIVA"),        // Status filter
     Some(10),             // Limit
-)?;
+)
+.await?;
 for charge in charges {
     println!("Charge: {} - {}", charge.txid, charge.status.unwrap_or_default());
 }
@@ -157,11 +165,13 @@ let cobv_payload = CobvPayload {
     info_adicionais: None,
 };
 
-let cobv_response = client.cobv_create(&cobv_payload)?;
+let cobv_response = client.cobv_create(&cobv_payload).await?;
 println!("Expiring charge created: {}", cobv_response.txid);
 
 // Update the charge
-let updated = client.cobv_update(&cobv_response.txid, &cobv_payload)?;
+let updated = client
+    .cobv_update(&cobv_response.txid, &cobv_payload)
+    .await?;
 println!("Updated charge status: {}", updated.status.unwrap_or_default());
 ```
 
@@ -178,17 +188,17 @@ let webhook_payload = WebhookPayload {
 };
 
 // Register a webhook
-let webhook = client.webhook_create(&webhook_payload)?;
+let webhook = client.webhook_create(&webhook_payload).await?;
 println!("Webhook registered: {}", webhook.id);
 
 // List all webhooks
-let webhooks = client.webhook_list()?;
+let webhooks = client.webhook_list().await?;
 for wh in webhooks.webhooks {
     println!("Webhook: {} -> {}", wh.id, wh.url);
 }
 
 // Delete a webhook
-client.webhook_delete(&webhook.id)?;
+client.webhook_delete(&webhook.id).await?;
 println!("Webhook deleted");
 ```
 
@@ -206,12 +216,14 @@ let transaction_payload = PixTransactionPayload {
     idempotency_key: Some("unique-key-2024-001".to_string()),
 };
 
-let transaction = client.pix_send(&transaction_payload)?;
+let transaction = client.pix_send(&transaction_payload).await?;
 println!("Transaction sent: {}", transaction.end_to_end_id);
 println!("Status: {}", transaction.status);
 
 // Get transaction details
-let details = client.pix_get_transaction(&transaction.end_to_end_id)?;
+let details = client
+    .pix_get_transaction(&transaction.end_to_end_id)
+    .await?;
 println!("Transaction status: {}", details.status);
 if let Some(cancel_reason) = details.motivo_cancelamento {
     println!("Cancellation reason: {}", cancel_reason);
@@ -220,18 +232,18 @@ if let Some(cancel_reason) = details.motivo_cancelamento {
 
 ## Error Handling
 
-The SDK returns `Result<T, EfiError>` for all operations:
+The SDK returns `Result<T, Error>` for all operations:
 
 ```rust
-use efi_bank::EfiError;
+use efi_bank::Error;
 
-match client.cob_create(&payload) {
+match client.cob_create(&payload).await {
     Ok(response) => println!("Success: {}", response.txid),
-    Err(EfiError::Http { status, body }) => {
+    Err(Error::RequestFailed { status, body }) => {
         eprintln!("HTTP Error {}: {}", status, body);
     }
-    Err(EfiError::Json(e)) => eprintln!("JSON parsing error: {}", e),
-    Err(EfiError::AuthUnavailable) => eprintln!("Authentication failed"),
+    Err(Error::Json(e)) => eprintln!("JSON parsing error: {}", e),
+    Err(Error::AuthUnavailable) => eprintln!("Authentication failed"),
     Err(e) => eprintln!("Error: {:?}", e),
 }
 ```
