@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 // ========== Split de pagamento Pix ==========
 
@@ -242,7 +243,8 @@ pub struct BillingRepasse {
     pub fixed: Option<i32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum BillingRepasseType {
     /// fee is deducted only from the account that issued the charge
     IssuerOnly = 1,
