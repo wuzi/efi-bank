@@ -378,19 +378,14 @@ pub struct BillingJuridicalPerson {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BillingNaturalPerson {
+pub struct BillingCustomer {
     pub name: String,
     pub cpf: String,
     pub email: Option<String>,
     pub birth: Option<String>,
     pub phone_number: Option<String>,
     pub address: Option<BillingAddress>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BillingCustomer {
-    Natural(Box<BillingNaturalPerson>),
-    Juridical(Box<BillingJuridicalPerson>),
+    pub juridical_person: Option<BillingJuridicalPerson>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
