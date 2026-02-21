@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use serde_with::skip_serializing_none;
 
 // ========== Split de pagamento Pix ==========
 
@@ -49,6 +50,7 @@ pub struct SplitConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct SplitConfigResponse {
     pub id: String,
     pub descricao: Option<String>,
@@ -58,6 +60,7 @@ pub struct SplitConfigResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct SplitLinkResponse {
     pub status: String,
     pub message: Option<String>,
@@ -67,6 +70,7 @@ pub struct SplitLinkResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobPayload {
     pub calendario: CobCalendario,
     pub devedor: Option<CobPessoa>,
@@ -78,6 +82,7 @@ pub struct CobPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobCalendario {
     pub data_de_vencimento: Option<String>,
     pub validade_apos_vencimento: Option<i32>,
@@ -85,6 +90,7 @@ pub struct CobCalendario {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobPessoa {
     pub cpf: Option<String>,
     pub cnpj: Option<String>,
@@ -93,6 +99,7 @@ pub struct CobPessoa {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobValor {
     pub original: String,
     pub multa: Option<String>,
@@ -110,6 +117,7 @@ pub struct CobInfoAdicional {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobResponse {
     pub txid: String,
     pub calendario: Option<CobCalendarioResponse>,
@@ -125,6 +133,7 @@ pub struct CobResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobCalendarioResponse {
     pub criacao_date_time: Option<String>,
     pub data_de_vencimento: Option<String>,
@@ -135,6 +144,7 @@ pub struct CobCalendarioResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobvPayload {
     pub calendario: CobvCalendario,
     pub devedor: Option<CobPessoa>,
@@ -153,6 +163,7 @@ pub struct CobvCalendario {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobvResponse {
     pub txid: String,
     pub calendario: Option<CobvCalendarioResponse>,
@@ -168,6 +179,7 @@ pub struct CobvResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct CobvCalendarioResponse {
     pub criacao_date_time: Option<String>,
     pub data_de_vencimento: Option<String>,
@@ -184,6 +196,7 @@ pub struct WebhookPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct WebhookResponse {
     pub id: String,
     pub url: String,
@@ -200,6 +213,7 @@ pub struct WebhooksListResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct PixTransactionPayload {
     pub valor: String,
     pub chave_destino: String,
@@ -209,6 +223,7 @@ pub struct PixTransactionPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct PixTransactionResponse {
     pub id: String,
     pub end_to_end_id: String,
@@ -220,6 +235,7 @@ pub struct PixTransactionResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[skip_serializing_none]
 pub struct PixTransactionDetailResponse {
     pub id: String,
     pub end_to_end_id: String,
@@ -234,6 +250,7 @@ pub struct PixTransactionDetailResponse {
 // ========== Billing API - Split de Pagamento ==========
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingRepasse {
     pub payee_code: String,
     /// transfer percentage, where 9000 equals 90%
@@ -259,11 +276,11 @@ pub struct BillingMarketplace {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingItem {
     pub name: String,
     pub value: i64,
     pub amount: i32,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub marketplace: Option<BillingMarketplace>,
 }
 
@@ -274,6 +291,7 @@ pub struct BillingShipping {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingAddress {
     pub street: Option<String>,
     pub number: Option<String>,
@@ -291,6 +309,7 @@ pub struct BillingJuridicalPerson {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingCustomer {
     pub name: Option<String>,
     pub cpf: Option<String>,
@@ -302,12 +321,14 @@ pub struct BillingCustomer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingBilletConfigurations {
     pub fine: Option<i64>,
     pub interest: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingBankingBillet {
     pub expire_at: Option<String>,
     pub customer: BillingCustomer,
@@ -316,23 +337,23 @@ pub struct BillingBankingBillet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingPayment {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub banking_billet: Option<BillingBankingBillet>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub credit_card: Option<BillingCreditCard>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingCreditCard {
     pub customer: BillingCustomer,
     pub installments: i32,
     pub payment_token: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub billing_address: Option<BillingAddress>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingChargeMetadata {
     /// Your valid URL address that will receive notifications of transaction status changes.
     /// Maximum of 255 characters.
@@ -344,19 +365,18 @@ pub struct BillingChargeMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingChargeCreateRequest {
     pub items: Vec<BillingItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BillingChargeMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingChargeOneStepRequest {
     pub items: Vec<BillingItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub shippings: Option<Vec<BillingShipping>>,
     pub payment: BillingPayment,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<BillingChargeMetadata>,
 }
 
@@ -372,6 +392,7 @@ pub struct BillingChargeResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingChargeData {
     pub barcode: String,
     #[serde(rename = "pix")]
@@ -387,6 +408,7 @@ pub struct BillingChargeData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingPix {
     pub qrcode: Option<String>,
     pub qrcode_image: Option<String>,
@@ -404,6 +426,7 @@ pub struct BillingNotificationResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub struct BillingNotificationData {
     pub created_at: String,
     pub custom_id: Option<String>,
