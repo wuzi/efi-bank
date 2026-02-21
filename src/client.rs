@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 
 use crate::auth::AccessToken;
 use crate::environment::{Endpoints, Environment};
-use crate::error::EfiError;
+use crate::error::Error;
 
 pub struct Client {
     pub(crate) id: String,
@@ -101,15 +101,15 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Client, EfiError> {
-        let client_id = self.id.ok_or(EfiError::BuilderMissingField("client_id"))?;
+    pub fn build(self) -> Result<Client, Error> {
+        let client_id = self.id.ok_or(Error::BuilderMissingField("client_id"))?;
         let client_secret = self
             .secret
-            .ok_or(EfiError::BuilderMissingField("client_secret"))?;
+            .ok_or(Error::BuilderMissingField("client_secret"))?;
 
         let http_client = if let Some(http_client) = self.http {
             if self.mtls_source.is_some() {
-                return Err(EfiError::BuilderConflict(
+                return Err(Error::BuilderConflict(
                     "cannot set both http_client and pkcs12_* options",
                 ));
             }
@@ -165,7 +165,7 @@ impl Client {
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<Res, EfiError>
+    ) -> Result<Res, Error>
     where
         Req: Serialize,
         Res: DeserializeOwned,
@@ -190,7 +190,7 @@ impl Client {
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<Res, EfiError>
+    ) -> Result<Res, Error>
     where
         Req: Serialize,
         Res: DeserializeOwned,
@@ -226,7 +226,7 @@ impl Client {
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<reqwest::blocking::Response, EfiError>
+    ) -> Result<reqwest::blocking::Response, Error>
     where
         Req: Serialize,
     {
@@ -246,7 +246,7 @@ impl Client {
         method: Method,
         path: &str,
         payload: Option<&Req>,
-    ) -> Result<reqwest::blocking::Response, EfiError>
+    ) -> Result<reqwest::blocking::Response, Error>
     where
         Req: Serialize,
     {
@@ -261,19 +261,19 @@ impl Client {
         Ok(request.send()?)
     }
 
-    fn parse_response<Res>(response: reqwest::blocking::Response) -> Result<Res, EfiError>
+    fn parse_response<Res>(response: reqwest::blocking::Response) -> Result<Res, Error>
     where
         Res: DeserializeOwned,
     {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().unwrap_or_else(|_| String::new());
-            return Err(EfiError::RequestFailed { status, body });
+            return Err(Error::RequestFailed { status, body });
         }
 
         let body = response.text()?;
         if body.trim().is_empty() {
-            return Err(EfiError::EmptyResponse);
+            return Err(Error::EmptyResponse);
         }
 
         Ok(serde_json::from_str(&body)?)

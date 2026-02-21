@@ -1,25 +1,25 @@
 use reqwest::Method;
 
 use crate::client::Client;
-use crate::error::EfiError;
+use crate::error::Error;
 use crate::types::{CobvPayload, CobvResponse};
 
 impl Client {
-    pub fn cobv_create(&self, payload: &CobvPayload) -> Result<CobvResponse, EfiError> {
+    pub fn cobv_create(&self, payload: &CobvPayload) -> Result<CobvResponse, Error> {
         self.send_authenticated(Method::POST, "/v2/cobv", Some(payload))
     }
 
-    pub fn cobv_update(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, EfiError> {
+    pub fn cobv_update(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated(Method::PUT, &path, Some(payload))
     }
 
-    pub fn cobv_patch(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, EfiError> {
+    pub fn cobv_patch(&self, txid: &str, payload: &CobvPayload) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated(Method::PATCH, &path, Some(payload))
     }
 
-    pub fn cobv_get(&self, txid: &str) -> Result<CobvResponse, EfiError> {
+    pub fn cobv_get(&self, txid: &str) -> Result<CobvResponse, Error> {
         let path = format!("/v2/cobv/{txid}");
         self.send_authenticated::<serde_json::Value, CobvResponse>(Method::GET, &path, None)
     }
@@ -29,7 +29,7 @@ impl Client {
         cpf: Option<&str>,
         status: Option<&str>,
         limit: Option<i32>,
-    ) -> Result<Vec<CobvResponse>, EfiError> {
+    ) -> Result<Vec<CobvResponse>, Error> {
         let mut path = String::from("/v2/cobv");
         let mut params = Vec::new();
 

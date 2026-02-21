@@ -12,7 +12,7 @@ pub mod webhooks;
 
 pub use client::{Client, ClientBuilder};
 pub use environment::{Endpoints, Environment, PRODUCTION_ENDPOINTS, SANDBOX_ENDPOINTS};
-pub use error::EfiError;
+pub use error::Error;
 pub use types::{
     BillingAddress, BillingBankingBillet, BillingBilletConfigurations, BillingChargeCreateRequest,
     BillingChargeData, BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,

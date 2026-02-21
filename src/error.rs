@@ -1,8 +1,7 @@
-use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
-pub enum EfiError {
+pub enum Error {
     BuilderMissingField(&'static str),
     BuilderConflict(&'static str),
     Io(std::io::Error),
@@ -16,7 +15,7 @@ pub enum EfiError {
     },
 }
 
-impl Display for EfiError {
+impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BuilderMissingField(field) => {
@@ -35,21 +34,19 @@ impl Display for EfiError {
     }
 }
 
-impl Error for EfiError {}
-
-impl From<std::io::Error> for EfiError {
+impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value)
     }
 }
 
-impl From<reqwest::Error> for EfiError {
+impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self {
         Self::Http(value)
     }
 }
 
-impl From<serde_json::Error> for EfiError {
+impl From<serde_json::Error> for Error {
     fn from(value: serde_json::Error) -> Self {
         Self::Json(value)
     }

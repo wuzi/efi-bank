@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::client::Client;
-use crate::error::EfiError;
+use crate::error::Error;
 
 const TOKEN_REFRESH_SKEW_SECS: u64 = 30;
 
@@ -28,25 +28,25 @@ struct OAuthResponse {
 }
 
 impl Client {
-    pub fn authenticate(&self) -> Result<(), EfiError> {
+    pub fn authenticate(&self) -> Result<(), Error> {
         let endpoints = self.endpoints();
         self.authenticate_with_url(endpoints.pix_api_oauth_token_url)
     }
 
-    pub fn authenticate_billing(&self) -> Result<(), EfiError> {
+    pub fn authenticate_billing(&self) -> Result<(), Error> {
         let endpoints = self.endpoints();
         self.authenticate_with_url(endpoints.billing_api_oauth_token_url)
     }
 
-    pub(crate) fn get_valid_access_token(&self) -> Result<String, EfiError> {
+    pub(crate) fn get_valid_access_token(&self) -> Result<String, Error> {
         self.get_valid_access_token_with(Self::authenticate)
     }
 
-    pub(crate) fn get_valid_billing_access_token(&self) -> Result<String, EfiError> {
+    pub(crate) fn get_valid_billing_access_token(&self) -> Result<String, Error> {
         self.get_valid_access_token_with(Self::authenticate_billing)
     }
 
-    fn authenticate_with_url(&self, token_url: &str) -> Result<(), EfiError> {
+    fn authenticate_with_url(&self, token_url: &str) -> Result<(), Error> {
         let response = self
             .http
             .post(token_url)
@@ -57,7 +57,7 @@ impl Client {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().unwrap_or_else(|_| String::new());
-            return Err(EfiError::RequestFailed { status, body });
+            return Err(Error::RequestFailed { status, body });
         }
 
         let oauth = response.json::<OAuthResponse>()?;
@@ -65,7 +65,7 @@ impl Client {
 
         self.token
             .lock()
-            .map_err(|_| EfiError::AuthUnavailable)?
+            .map_err(|_| Error::AuthUnavailable)?
             .replace(AccessToken {
                 value: oauth.access_token,
                 expires_at,
@@ -76,10 +76,10 @@ impl Client {
 
     fn get_valid_access_token_with(
         &self,
-        authenticate: fn(&Self) -> Result<(), EfiError>,
-    ) -> Result<String, EfiError> {
+        authenticate: fn(&Self) -> Result<(), Error>,
+    ) -> Result<String, Error> {
         let needs_authentication = {
-            let token = self.token.lock().map_err(|_| EfiError::AuthUnavailable)?;
+            let token = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
             token.as_ref().is_none_or(AccessToken::is_expired)
         };
 
@@ -87,10 +87,10 @@ impl Client {
             authenticate(self)?;
         }
 
-        let token = self.token.lock().map_err(|_| EfiError::AuthUnavailable)?;
+        let token = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
         token
             .as_ref()
             .map(|cached| cached.value.clone())
-            .ok_or(EfiError::AuthUnavailable)
+            .ok_or(Error::AuthUnavailable)
     }
 }
