@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 // ========== Split de pagamento Pix ==========
 
@@ -397,6 +396,30 @@ pub struct BillingPdf {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingNotificationResponse {
-    #[serde(flatten)]
-    pub data: Value,
+    pub code: i32,
+    pub data: Vec<BillingNotificationData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingNotificationData {
+    pub created_at: String,
+    pub custom_id: Option<String>,
+    pub id: i64,
+    pub identifiers: BillingNotificationIdentifiers,
+    pub status: BillingNotificationStatus,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub received_by_bank_at: Option<String>,
+    pub value: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingNotificationIdentifiers {
+    pub charge_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingNotificationStatus {
+    pub current: String,
+    pub previous: Option<String>,
 }
