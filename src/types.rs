@@ -379,8 +379,8 @@ pub struct BillingJuridicalPerson {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingCustomer {
-    pub name: String,
-    pub cpf: String,
+    pub name: Option<String>,
+    pub cpf: Option<String>,
     pub email: Option<String>,
     pub birth: Option<String>,
     pub phone_number: Option<String>,
