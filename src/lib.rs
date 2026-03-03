@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod billing;
+pub mod carnet;
 pub mod client;
 pub mod cob;
 pub mod cobv;
@@ -18,8 +19,10 @@ pub use types::{
     BillingChargeData, BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,
     BillingCreditCard, BillingCustomer, BillingItem, BillingMarketplace,
     BillingNotificationResponse, BillingPayment, BillingPdf, BillingPix, BillingRepasse,
-    BillingShipping, CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor,
-    CobvCalendario, CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
+    BillingShipping, CarnetCreateRequest, CarnetCustomer, CarnetHistoryRequest,
+    CarnetMetadataRequest, CarnetParcel, CarnetParcelRequest, CarnetParcelsRequest, CarnetResponse,
+    CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor, CobvCalendario,
+    CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
     PixTransactionResponse, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
     SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
     WebhooksListResponse,

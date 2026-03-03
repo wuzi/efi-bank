@@ -417,6 +417,68 @@ pub struct BillingPdf {
     pub charge: String,
 }
 
+// ========== Billing API - Carnet ===========
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetCustomer {
+    pub name: Option<String>,
+    pub cpf: Option<String>,
+    pub cnpj: Option<String>,
+    pub email: Option<String>,
+    pub phone_number: Option<String>,
+    pub birth: Option<String>,
+    pub juridical_person: Option<BillingJuridicalPerson>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetCreateRequest {
+    pub items: Vec<BillingItem>,
+    pub customer: CarnetCustomer,
+    pub expire_at: String,
+    pub message: Option<String>,
+    pub repeats: i32,
+    pub split_items: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetMetadataRequest {
+    pub notification_url: Option<String>,
+    pub custom_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetParcelRequest {
+    pub expire_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetParcelsRequest {
+    pub parcels: Vec<CarnetParcel>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetParcel {
+    pub parcel: i32,
+    pub expire_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetHistoryRequest {
+    pub description: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetResponse {
+    pub code: Option<i32>,
+    pub data: Option<serde_json::Value>,
+    pub error: Option<serde_json::Value>,
+    pub message: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingNotificationResponse {
     pub code: i32,
