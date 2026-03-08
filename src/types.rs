@@ -273,13 +273,18 @@ pub struct BillingMarketplace {
     pub mode: BillingRepasseType,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingMarketplaceResponse {
+    pub repasses: Vec<BillingRepasse>,
+}
+
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingItem {
     pub name: String,
     pub value: i64,
     pub amount: i32,
-    pub marketplace: Option<BillingMarketplace>,
+    pub marketplace: Option<BillingMarketplaceResponse>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
