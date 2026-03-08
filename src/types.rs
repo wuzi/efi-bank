@@ -432,19 +432,19 @@ pub struct BillingChargeDetailPayment {
     pub method: String,
     pub created_at: String,
     pub message: Option<String>,
-    pub banking_billet: Option<BillingChargeDetailBankingBillet>,
+    pub banking_billet: BillingChargeDetailBankingBillet,
     pub credit_card: Option<serde_json::Value>,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingChargeDetailBankingBillet {
-    pub barcode: Option<String>,
-    pub pix: Option<BillingPix>,
-    pub link: Option<String>,
-    pub billet_link: Option<String>,
-    pub pdf: Option<BillingPdf>,
-    pub expire_at: Option<String>,
+    pub barcode: String,
+    pub pix: BillingPix,
+    pub link: String,
+    pub billet_link: String,
+    pub pdf: BillingPdf,
+    pub expire_at: String,
 }
 
 #[skip_serializing_none]
