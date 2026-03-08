@@ -3,8 +3,8 @@ use reqwest::Method;
 use crate::client::Client;
 use crate::error::Error;
 use crate::types::{
-    BillingChargeCreateRequest, BillingChargeOneStepRequest, BillingChargePayRequest,
-    BillingChargeResponse, BillingNotificationResponse,
+    BillingChargeCreateRequest, BillingChargeDetailResponse, BillingChargeOneStepRequest,
+    BillingChargePayRequest, BillingChargeResponse, BillingNotificationResponse,
 };
 
 impl Client {
@@ -32,6 +32,19 @@ impl Client {
         let path = format!("/v1/charge/{charge_id}/pay");
         self.send_authenticated_billing(Method::POST, &path, Some(payload))
             .await
+    }
+
+    pub async fn billing_charge_get(
+        &self,
+        charge_id: i64,
+    ) -> Result<BillingChargeDetailResponse, Error> {
+        let path = format!("/v1/charge/{charge_id}");
+        self.send_authenticated_billing::<serde_json::Value, BillingChargeDetailResponse>(
+            Method::GET,
+            &path,
+            None,
+        )
+        .await
     }
 
     pub async fn billing_notification_get(

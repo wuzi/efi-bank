@@ -389,6 +389,64 @@ pub struct BillingChargeResponse {
     pub data: BillingChargeData,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeDetailResponse {
+    pub code: i32,
+    pub data: BillingChargeDetailData,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeDetailData {
+    pub charge_id: i64,
+    pub total: i64,
+    pub status: String,
+    pub custom_id: Option<String>,
+    pub created_at: String,
+    pub notification_url: Option<String>,
+    pub items: Vec<BillingItem>,
+    pub history: Vec<BillingChargeHistoryEntry>,
+    pub shippings: Option<Vec<BillingChargeShipping>>,
+    pub customer: Option<BillingCustomer>,
+    pub payment: BillingChargeDetailPayment,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeHistoryEntry {
+    pub message: String,
+    pub created_at: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeShipping {
+    pub name: String,
+    pub value: i64,
+    pub payee_code: Option<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeDetailPayment {
+    pub method: String,
+    pub created_at: String,
+    pub message: Option<String>,
+    pub banking_billet: Option<BillingChargeDetailBankingBillet>,
+    pub credit_card: Option<serde_json::Value>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingChargeDetailBankingBillet {
+    pub barcode: Option<String>,
+    pub pix: Option<BillingPix>,
+    pub link: Option<String>,
+    pub billet_link: Option<String>,
+    pub pdf: Option<BillingPdf>,
+    pub expire_at: Option<String>,
+}
+
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingChargeData {

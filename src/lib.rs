@@ -16,8 +16,10 @@ pub use environment::{Endpoints, Environment, PRODUCTION_ENDPOINTS, SANDBOX_ENDP
 pub use error::Error;
 pub use types::{
     BillingAddress, BillingBankingBillet, BillingBilletConfigurations, BillingChargeCreateRequest,
-    BillingChargeData, BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,
-    BillingCreditCard, BillingCustomer, BillingItem, BillingMarketplace,
+    BillingChargeData, BillingChargeDetailBankingBillet, BillingChargeDetailData,
+    BillingChargeDetailPayment, BillingChargeDetailResponse, BillingChargeHistoryEntry,
+    BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,
+    BillingChargeShipping, BillingCreditCard, BillingCustomer, BillingItem, BillingMarketplace,
     BillingNotificationResponse, BillingPayment, BillingPdf, BillingPix, BillingRepasse,
     BillingShipping, CarnetCharge, CarnetChargePdf, CarnetCreateRequest, CarnetCustomer,
     CarnetData, CarnetHistoryRequest, CarnetMetadataRequest, CarnetParcel, CarnetParcelRequest,
