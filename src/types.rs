@@ -408,8 +408,8 @@ pub struct BillingChargeData {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingPix {
-    pub qrcode: Option<String>,
-    pub qrcode_image: Option<String>,
+    pub qrcode: String,
+    pub qrcode_image: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -472,11 +472,49 @@ pub struct CarnetHistoryRequest {
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetData {
+    pub carnet_id: i64,
+    pub status: String,
+    pub cover: String,
+    pub link: String,
+    pub carnet_link: String,
+    pub pdf: CarnetPdf,
+    pub charges: Vec<CarnetCharge>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetPdf {
+    pub carnet: String,
+    pub cover: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetCharge {
+    pub charge_id: i64,
+    pub parcel: String,
+    pub status: String,
+    pub value: i64,
+    pub expire_at: String,
+    pub url: String,
+    pub parcel_link: String,
+    pub pdf: CarnetChargePdf,
+    pub barcode: String,
+    pub pix: BillingPix,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetChargePdf {
+    pub charge: String,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CarnetResponse {
-    pub code: Option<i32>,
-    pub data: Option<serde_json::Value>,
-    pub error: Option<serde_json::Value>,
-    pub message: Option<String>,
+    pub code: i32,
+    pub data: CarnetData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
