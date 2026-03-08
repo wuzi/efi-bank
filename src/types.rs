@@ -440,6 +440,7 @@ pub struct CarnetCreateRequest {
     pub message: Option<String>,
     pub repeats: i32,
     pub split_items: Option<bool>,
+    pub metadata: Option<CarnetMetadataRequest>,
 }
 
 #[skip_serializing_none]
