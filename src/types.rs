@@ -284,6 +284,15 @@ pub struct BillingItem {
     pub name: String,
     pub value: i64,
     pub amount: i32,
+    pub marketplace: Option<BillingMarketplace>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingItemResponse {
+    pub name: String,
+    pub value: i64,
+    pub amount: i32,
     pub marketplace: Option<BillingMarketplaceResponse>,
 }
 
@@ -409,7 +418,7 @@ pub struct BillingChargeDetailData {
     pub custom_id: Option<String>,
     pub created_at: String,
     pub notification_url: Option<String>,
-    pub items: Vec<BillingItem>,
+    pub items: Vec<BillingItemResponse>,
     pub history: Vec<BillingChargeHistoryEntry>,
     pub shippings: Option<Vec<BillingChargeShipping>>,
     pub customer: Option<BillingCustomer>,
