@@ -513,6 +513,7 @@ pub struct CarnetCreateRequest {
     pub repeats: i32,
     pub split_items: Option<bool>,
     pub metadata: Option<CarnetMetadataRequest>,
+    pub configurations: Option<BillingBilletConfigurations>,
 }
 
 #[skip_serializing_none]
