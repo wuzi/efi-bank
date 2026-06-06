@@ -45,4 +45,21 @@ impl Client {
         .await?;
         Ok(())
     }
+
+    pub async fn webhook_config(
+        &self,
+        chave: &str,
+        payload: &WebhookPayload,
+        skip_mtls: bool,
+    ) -> Result<WebhookResponse, Error> {
+        let path = format!("/v2/webhook/{chave}");
+        let mut req = self.http.put(format!("{}{}", self.endpoints().pix_api_base_url, path))
+            .bearer_auth(self.get_valid_access_token().await?)
+            .json(payload);
+        if skip_mtls {
+            req = req.header("x-skip-mtls", "true").header("x-skip-mtls-checking", "true");
+        }
+        let resp = req.send().await?;
+        Self::parse_response(resp).await
+    }
 }

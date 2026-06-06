@@ -25,4 +25,15 @@ impl Client {
         )
         .await
     }
+
+    pub async fn pix_refund(
+        &self,
+        e2e_id: &str,
+        id: &str,
+        payload: &crate::types::PixRefundPayload,
+    ) -> Result<crate::types::PixRefundResponse, Error> {
+        let path = format!("/v2/pix/{e2e_id}/devolucao/{id}");
+        self.send_authenticated(Method::PUT, &path, Some(payload))
+            .await
+    }
 }

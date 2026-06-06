@@ -84,6 +84,8 @@ pub struct CobPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CobCalendario {
+    /// Tempo de vida da cobrança imediata, em segundos. Usado em PUT /v2/cob/{txid}.
+    pub expiracao: Option<i32>,
     pub data_de_vencimento: Option<String>,
     pub validade_apos_vencimento: Option<i32>,
 }
@@ -126,7 +128,8 @@ pub struct CobResponse {
     pub chave: Option<String>,
     pub solicitacao_pagador: Option<String>,
     pub info_adicionais: Option<Vec<CobInfoAdicional>>,
-    pub br: Option<String>,
+    #[serde(rename = "pixCopiaECola")]
+    pub pix_copia_ecola: Option<String>,
     pub status: Option<String>,
     pub criacao_date_time: Option<String>,
 }
@@ -136,6 +139,7 @@ pub struct CobResponse {
 #[serde(rename_all = "camelCase")]
 pub struct CobCalendarioResponse {
     pub criacao_date_time: Option<String>,
+    pub expiracao: Option<i32>,
     pub data_de_vencimento: Option<String>,
     pub validade_apos_vencimento: Option<i32>,
 }
@@ -172,7 +176,8 @@ pub struct CobvResponse {
     pub chave: Option<String>,
     pub solicitacao_pagador: Option<String>,
     pub info_adicionais: Option<Vec<CobInfoAdicional>>,
-    pub br: Option<String>,
+    #[serde(rename = "pixCopiaECola")]
+    pub pix_copia_ecola: Option<String>,
     pub status: Option<String>,
     pub criacao_date_time: Option<String>,
 }
@@ -190,9 +195,10 @@ pub struct CobvCalendarioResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookPayload {
-    pub url: String,
-    pub chave: String,
+    #[serde(rename = "webhookUrl")]
+    pub webhook_url: String,
 }
+
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,6 +251,23 @@ pub struct PixTransactionDetailResponse {
     pub chave_origem: Option<String>,
     pub data_hora: Option<String>,
     pub motivo_cancelamento: Option<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PixRefundPayload {
+    pub valor: String,
+    pub natureza: Option<String>,
+    pub descricao: Option<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PixRefundResponse {
+    pub id: String,
+    pub r2e_id: String,
+    pub valor: String,
+    pub status: String,
 }
 
 // ========== Billing API - Split de Pagamento ==========
@@ -446,7 +469,7 @@ pub struct BillingChargeDetailPayment {
     pub method: String,
     pub created_at: String,
     pub message: Option<String>,
-    pub banking_billet: BillingChargeDetailBankingBillet,
+    pub banking_billet: Option<BillingChargeDetailBankingBillet>,
     pub credit_card: Option<serde_json::Value>,
 }
 
@@ -464,13 +487,13 @@ pub struct BillingChargeDetailBankingBillet {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingChargeData {
-    pub barcode: String,
+    pub barcode: Option<String>,
     #[serde(rename = "pix")]
     pub pix: Option<BillingPix>,
-    pub link: String,
-    pub billet_link: String,
-    pub pdf: BillingPdf,
-    pub expire_at: String,
+    pub link: Option<String>,
+    pub billet_link: Option<String>,
+    pub pdf: Option<BillingPdf>,
+    pub expire_at: Option<String>,
     pub charge_id: i64,
     pub status: String,
     pub total: i64,
@@ -621,3 +644,25 @@ pub struct BillingNotificationStatus {
     pub current: String,
     pub previous: Option<String>,
 }
+
+// ========== Webhook Incoming Payload ==========
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PixWebhookEvent {
+    #[serde(rename = "txid")]
+    pub tx_id: Option<String>,
+    pub pix: Option<Vec<PixWebhookPix>>,
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PixWebhookPix {
+    #[serde(rename = "endToEndId")]
+    pub end_to_end_id: String,
+    #[serde(rename = "txid")]
+    pub tx_id: Option<String>,
+    #[serde(rename = "valor")]
+    pub value: String,
+}
+

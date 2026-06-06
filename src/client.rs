@@ -1,5 +1,5 @@
-use std::sync::Mutex;
-use std::{fs, path::PathBuf};
+use tokio::sync::Mutex;
+use std::{fs, path::PathBuf, time::Duration};
 
 use reqwest::{Client as HttpClient, Identity, Method, StatusCode};
 use serde::Serialize;
@@ -14,7 +14,8 @@ pub struct Client {
     pub(crate) secret: String,
     pub(crate) environment: Environment,
     pub(crate) http: HttpClient,
-    pub(crate) token: Mutex<Option<AccessToken>>,
+    pub(crate) pix_token: Mutex<Option<AccessToken>>,
+    pub(crate) billing_token: Mutex<Option<AccessToken>>,
 }
 
 enum MtlsSource {
@@ -117,16 +118,16 @@ impl ClientBuilder {
             match mtls_source {
                 MtlsSource::Pkcs12Der { der, password } => {
                     let identity = Identity::from_pkcs12_der(&der, &password)?;
-                    HttpClient::builder().identity(identity).build()?
+                    HttpClient::builder().identity(identity).timeout(Duration::from_secs(30)).build()?
                 }
                 MtlsSource::Pkcs12File { path, password } => {
                     let der = fs::read(path)?;
                     let identity = Identity::from_pkcs12_der(&der, &password)?;
-                    HttpClient::builder().identity(identity).build()?
+                    HttpClient::builder().identity(identity).timeout(Duration::from_secs(30)).build()?
                 }
             }
         } else {
-            HttpClient::new()
+            HttpClient::builder().timeout(Duration::from_secs(30)).build()?
         };
 
         Ok(Client::from_parts(
@@ -139,7 +140,7 @@ impl ClientBuilder {
 }
 
 impl Client {
-    const fn from_parts(
+    fn from_parts(
         client_id: String,
         client_secret: String,
         environment: Environment,
@@ -150,7 +151,8 @@ impl Client {
             secret: client_secret,
             environment,
             http: http_client,
-            token: Mutex::new(None),
+            pix_token: Mutex::new(None),
+            billing_token: Mutex::new(None),
         }
     }
 
@@ -267,7 +269,7 @@ impl Client {
         Ok(request.send().await?)
     }
 
-    async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
+    pub(crate) async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
     where
         Res: DeserializeOwned,
     {

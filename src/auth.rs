@@ -1,3 +1,4 @@
+use tokio::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -30,29 +31,33 @@ struct OAuthResponse {
 impl Client {
     pub async fn authenticate(&self) -> Result<(), Error> {
         let endpoints = self.endpoints();
-        self.authenticate_with_url(endpoints.pix_api_oauth_token_url)
+        self.authenticate_with_url(endpoints.pix_api_oauth_token_url, &self.pix_token)
             .await
     }
 
     pub async fn authenticate_billing(&self) -> Result<(), Error> {
         let endpoints = self.endpoints();
-        self.authenticate_with_url(endpoints.billing_api_oauth_token_url)
+        self.authenticate_with_url(endpoints.billing_api_oauth_token_url, &self.billing_token)
             .await
     }
 
     pub(crate) async fn get_valid_access_token(&self) -> Result<String, Error> {
         let endpoints = self.endpoints();
-        self.get_valid_access_token_with_url(endpoints.pix_api_oauth_token_url)
+        self.get_valid_access_token_with_url(endpoints.pix_api_oauth_token_url, &self.pix_token)
             .await
     }
 
     pub(crate) async fn get_valid_billing_access_token(&self) -> Result<String, Error> {
         let endpoints = self.endpoints();
-        self.get_valid_access_token_with_url(endpoints.billing_api_oauth_token_url)
+        self.get_valid_access_token_with_url(endpoints.billing_api_oauth_token_url, &self.billing_token)
             .await
     }
 
-    async fn authenticate_with_url(&self, token_url: &str) -> Result<(), Error> {
+    async fn authenticate_with_url(
+        &self,
+        token_url: &str,
+        token_store: &Mutex<Option<AccessToken>>,
+    ) -> Result<(), Error> {
         let response = self
             .http
             .post(token_url)
@@ -70,9 +75,9 @@ impl Client {
         let oauth = response.json::<OAuthResponse>().await?;
         let expires_at = Instant::now() + Duration::from_secs(oauth.expires_in);
 
-        self.token
+        token_store
             .lock()
-            .map_err(|_| Error::AuthUnavailable)?
+            .await
             .replace(AccessToken {
                 value: oauth.access_token,
                 expires_at,
@@ -81,17 +86,21 @@ impl Client {
         Ok(())
     }
 
-    async fn get_valid_access_token_with_url(&self, token_url: &str) -> Result<String, Error> {
+    async fn get_valid_access_token_with_url(
+        &self,
+        token_url: &str,
+        token_store: &Mutex<Option<AccessToken>>,
+    ) -> Result<String, Error> {
         let needs_authentication = {
-            let token = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
+            let token = token_store.lock().await;
             token.as_ref().is_none_or(AccessToken::is_expired)
         };
 
         if needs_authentication {
-            self.authenticate_with_url(token_url).await?;
+            self.authenticate_with_url(token_url, token_store).await?;
         }
 
-        let token = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
+        let token = token_store.lock().await;
         token
             .as_ref()
             .map(|cached| cached.value.clone())

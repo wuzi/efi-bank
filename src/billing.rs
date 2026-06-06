@@ -59,4 +59,13 @@ impl Client {
         )
         .await
     }
+
+    pub async fn billing_charge_cancel(
+        &self,
+        charge_id: i64,
+    ) -> Result<BillingChargeResponse, Error> {
+        let path = format!("/v1/charge/{charge_id}/cancel");
+        self.send_authenticated_billing(Method::PUT, &path, None::<&serde_json::Value>)
+            .await
+    }
 }
