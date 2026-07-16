@@ -611,13 +611,55 @@ pub struct BillingNotificationData {
     pub value: Option<i64>,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingNotificationIdentifiers {
-    pub charge_id: i64,
+    pub charge_id: Option<i64>,
+    pub carnet_id: Option<i64>,
+    pub subscription_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingNotificationStatus {
     pub current: String,
     pub previous: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BillingNotificationResponse;
+
+    #[test]
+    fn deserializes_mixed_carnet_notification_history() {
+        let response: BillingNotificationResponse = serde_json::from_value(serde_json::json!({
+            "code": 200,
+            "data": [
+                {
+                    "created_at": "2022-03-22 09:38:36",
+                    "custom_id": null,
+                    "id": 1,
+                    "identifiers": { "carnet_id": 2512240 },
+                    "status": { "current": "up_to_date", "previous": null },
+                    "type": "carnet"
+                },
+                {
+                    "created_at": "2022-04-03 07:34:22",
+                    "custom_id": null,
+                    "id": 2,
+                    "identifiers": {
+                        "carnet_id": 2512240,
+                        "charge_id": 27757742
+                    },
+                    "status": { "current": "paid", "previous": "waiting" },
+                    "type": "carnet_charge",
+                    "value": 6250
+                }
+            ]
+        }))
+        .unwrap();
+
+        assert_eq!(response.data[0].identifiers.charge_id, None);
+        assert_eq!(response.data[0].identifiers.carnet_id, Some(2512240));
+        assert_eq!(response.data[1].identifiers.charge_id, Some(27757742));
+    }
 }
