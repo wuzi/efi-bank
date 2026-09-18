@@ -9,6 +9,15 @@ use crate::auth::AccessToken;
 use crate::environment::{Endpoints, Environment};
 use crate::error::Error;
 
+// Bound each native HTTP attempt. OAuth refresh is accounted for separately.
+pub(crate) fn http_client_builder() -> reqwest::ClientBuilder {
+    HttpClient::builder()
+        .retry(reqwest::retry::never())
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(20))
+        .connect_timeout(std::time::Duration::from_secs(5))
+}
+
 pub struct Client {
     pub(crate) id: String,
     pub(crate) secret: String,
@@ -77,6 +86,10 @@ impl ClientBuilder {
         self
     }
 
+    /// Supply a caller-owned transport, overriding the SDK defaults.
+    ///
+    /// The caller must disable retries and redirects and set finite request/connect
+    /// timeouts to retain bounded native request accounting.
     #[must_use]
     pub fn http_client(mut self, http_client: HttpClient) -> Self {
         self.http = Some(http_client);
@@ -118,16 +131,16 @@ impl ClientBuilder {
             match mtls_source {
                 MtlsSource::Pkcs12Der { der, password } => {
                     let identity = Identity::from_pkcs12_der(&der, &password)?;
-                    HttpClient::builder().identity(identity).build()?
+                    http_client_builder().identity(identity).build()?
                 }
                 MtlsSource::Pkcs12File { path, password } => {
                     let der = fs::read(path)?;
                     let identity = Identity::from_pkcs12_der(&der, &password)?;
-                    HttpClient::builder().identity(identity).build()?
+                    http_client_builder().identity(identity).build()?
                 }
             }
         } else {
-            HttpClient::new()
+            http_client_builder().build()?
         };
 
         Ok(Client::from_parts(
@@ -172,7 +185,7 @@ impl Client {
             "fixture-client".into(),
             "fixture-secret".into(),
             Environment::Sandbox,
-            HttpClient::new(),
+            http_client_builder().build().unwrap(),
         );
         client.endpoints_override = Some(Endpoints {
             pix_api_base_url: base_url,

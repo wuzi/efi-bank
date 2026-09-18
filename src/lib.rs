@@ -19,14 +19,14 @@ pub use environment::{Endpoints, Environment, PRODUCTION_ENDPOINTS, SANDBOX_ENDP
 pub use error::Error;
 pub use types::{
     BillingActionResponse, BillingAddress, BillingBankingBillet, BillingBilletConfigurations,
-    BillingChargeCreateRequest, BillingChargeData, BillingChargeDetailBankingBillet,
-    BillingChargeDetailData, BillingChargeDetailPayment, BillingChargeDetailResponse,
-    BillingChargeHistoryEntry, BillingChargeListBankingBillet, BillingChargeListCarnet,
-    BillingChargeListItem, BillingChargeListParams, BillingChargeListPayment,
-    BillingChargeListQuery, BillingChargeListResponse, BillingChargeOneStepRequest,
-    BillingChargePayRequest, BillingChargeReadBankingBillet, BillingChargeReadData,
-    BillingChargeReadPayment, BillingChargeReadResponse, BillingChargeResponse,
-    BillingChargeShipping, BillingCreditCard, BillingCustomer, BillingItem,
+    BillingChargeCreateRequest, BillingChargeData, BillingChargeDateOf,
+    BillingChargeDetailBankingBillet, BillingChargeDetailData, BillingChargeDetailPayment,
+    BillingChargeDetailResponse, BillingChargeHistoryEntry, BillingChargeListBankingBillet,
+    BillingChargeListCarnet, BillingChargeListItem, BillingChargeListParams,
+    BillingChargeListPayment, BillingChargeListQuery, BillingChargeListResponse,
+    BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeReadBankingBillet,
+    BillingChargeReadData, BillingChargeReadPayment, BillingChargeReadResponse,
+    BillingChargeResponse, BillingChargeShipping, BillingCreditCard, BillingCustomer, BillingItem,
     BillingLifecycleCustomer, BillingMarketplace, BillingNotificationResponse, BillingPagination,
     BillingPayment, BillingPdf, BillingPix, BillingRepasse, BillingShipping, CarnetCharge,
     CarnetChargePdf, CarnetCreateRequest, CarnetCustomer, CarnetData, CarnetDetailCharge,
@@ -38,3 +38,6 @@ pub use types::{
     SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
     WebhooksListResponse,
 };
+
+#[cfg(test)]
+mod transport_tests;

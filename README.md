@@ -2,6 +2,29 @@
 
 A Rust SDK for integrating with the payment services provided by [Efí Bank](https://dev.efipay.com.br/en/docs/api-pix/credenciais/). This library provides strongly-typed bindings for the Efí Pix API with automatic OAuth token management and mTLS support.
 
+## HTTP transport and request accounting
+
+SDK-created clients disable automatic HTTP retries and redirects. Each HTTP
+attempt has a 20-second total timeout and a 5-second connection timeout, including
+TLS negotiation. A timeout or dropped response does not prove a mutation failed;
+reconcile uncertain mutations before deciding whether to submit another request.
+
+`ClientBuilder::http_client` accepts a caller-owned Reqwest client. Configure that
+client with `.retry(reqwest::retry::never())`,
+`.redirect(reqwest::redirect::Policy::none())`, and finite `.timeout(...)` and
+`.connect_timeout(...)` values to preserve these accounting bounds.
+
+OAuth handling remains explicit: one initial authentication when needed, one API
+attempt, and at most one token refresh and repeated API attempt after HTTP 401
+(up to four native requests from a cold client). Transport errors and rate limits
+do not trigger that refresh. PDF downloads also disable retries and redirects and
+retain their trusted-host, content-type, signature, and size checks.
+
+For charge discovery, use `charge_type: "billet".into()` and
+`date_of: Some(BillingChargeDateOf::Creation)` in `BillingChargeListQuery`.
+The optional date selector also supports `Payment` and `Expired`, matching the
+[official list contract](https://dev.efipay.com.br/markdown/charges/billet/billet_list.md).
+
 ## Features
 
 - **mTLS support** - PKCS#12 certificate authentication

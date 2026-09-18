@@ -74,6 +74,14 @@ impl Client {
                 .append_pair("charge_type", &query.charge_type)
                 .append_pair("begin_date", &query.begin_date)
                 .append_pair("end_date", &query.end_date);
+            if let Some(date_of) = query.date_of {
+                let date_of = match date_of {
+                    crate::types::BillingChargeDateOf::Creation => "creation",
+                    crate::types::BillingChargeDateOf::Payment => "payment",
+                    crate::types::BillingChargeDateOf::Expired => "expired",
+                };
+                pairs.append_pair("date_of", date_of);
+            }
             if let Some(custom_id) = &query.custom_id {
                 pairs.append_pair("custom_id", custom_id);
             }

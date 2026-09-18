@@ -130,7 +130,7 @@ async fn charge_list_sends_encoded_filters_and_deserializes_candidate_fields() {
     let server = TestServer::start(vec![
         support::auth(),
         Exchange {
-            request_line: "GET /v1/charges?charge_type=banking_billet&begin_date=2024-05-01&end_date=2024-05-30&custom_id=invoice%2F42&limit=25&page=2&offset=25 HTTP/1.1",
+            request_line: "GET /v1/charges?charge_type=billet&begin_date=2024-05-01&end_date=2024-05-30&date_of=creation&custom_id=invoice%2F42&limit=25&page=2&offset=25 HTTP/1.1",
             status: 200,
             body: response,
         },
@@ -139,9 +139,10 @@ async fn charge_list_sends_encoded_filters_and_deserializes_candidate_fields() {
     let result = server
         .client()
         .billing_charges_list(&BillingChargeListQuery {
-            charge_type: "banking_billet".into(),
+            charge_type: "billet".into(),
             begin_date: "2024-05-01".into(),
             end_date: "2024-05-30".into(),
+            date_of: Some(crate::BillingChargeDateOf::Creation),
             custom_id: Some("invoice/42".into()),
             limit: Some(25),
             page: Some(2),
@@ -466,4 +467,48 @@ async fn cold_401_retry_reserves_at_most_four_requests() {
             "GET /v1/charge/11 HTTP/1.1"
         ]
     );
+}
+
+#[tokio::test]
+async fn charge_list_preserves_optional_date_selection() {
+    use crate::BillingChargeDateOf;
+    for (date_of, request_line) in [
+        (
+            None,
+            "GET /v1/charges?charge_type=billet&begin_date=2024-05-01&end_date=2024-05-30 HTTP/1.1",
+        ),
+        (
+            Some(BillingChargeDateOf::Payment),
+            "GET /v1/charges?charge_type=billet&begin_date=2024-05-01&end_date=2024-05-30&date_of=payment HTTP/1.1",
+        ),
+        (
+            Some(BillingChargeDateOf::Expired),
+            "GET /v1/charges?charge_type=billet&begin_date=2024-05-01&end_date=2024-05-30&date_of=expired HTTP/1.1",
+        ),
+    ] {
+        let server = TestServer::start(vec![
+            support::auth(),
+            Exchange {
+                request_line,
+                status: 200,
+                body: r#"{"code":200,"data":[],"params":{"begin_date":"2024-05-01","end_date":"2024-05-30","pagination":{"limit":100,"offset":0,"page":1}}}"#,
+            },
+        ]);
+        let response = server
+            .client()
+            .billing_charges_list(&BillingChargeListQuery {
+                charge_type: "billet".into(),
+                begin_date: "2024-05-01".into(),
+                end_date: "2024-05-30".into(),
+                date_of,
+                custom_id: None,
+                limit: None,
+                page: None,
+                offset: None,
+            })
+            .await
+            .unwrap();
+        assert!(response.data.is_empty());
+        server.finish();
+    }
 }

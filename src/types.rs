@@ -497,12 +497,24 @@ pub struct BillingActionResponse {
     pub code: i32,
 }
 
+/// Which date the charge-list search bounds apply to.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BillingChargeDateOf {
+    Creation,
+    Payment,
+    Expired,
+}
+
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BillingChargeListQuery {
+    /// Native list filter: `billet`, `carnet`, `subscription`, or `card`.
     pub charge_type: String,
     pub begin_date: String,
     pub end_date: String,
+    /// Select `Creation` explicitly when discovering a charge after uncertain creation.
+    pub date_of: Option<BillingChargeDateOf>,
     /// Correlates Efí charges with caller records; it is not an idempotency key.
     pub custom_id: Option<String>,
     pub limit: Option<u32>,

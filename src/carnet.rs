@@ -216,11 +216,7 @@ fn artifact_url(value: &str) -> Result<reqwest::Url, Error> {
 }
 
 async fn download_pdf(url: &str) -> Result<Vec<u8>, Error> {
-    let http = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(20))
-        .connect_timeout(std::time::Duration::from_secs(5))
-        .build()?;
+    let http = crate::client::http_client_builder().build()?;
     let mut response = http
         .get(url)
         .header(reqwest::header::ACCEPT, "application/pdf")
