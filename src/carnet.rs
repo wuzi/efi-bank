@@ -3,8 +3,8 @@ use reqwest::Method;
 use crate::client::Client;
 use crate::error::Error;
 use crate::types::{
-    CarnetCreateRequest, CarnetHistoryRequest, CarnetMetadataRequest, CarnetParcelRequest,
-    CarnetParcelsRequest, CarnetResponse,
+    BillingActionResponse, CarnetCreateRequest, CarnetDetailResponse, CarnetHistoryRequest,
+    CarnetMetadataRequest, CarnetParcelRequest, CarnetParcelsRequest, CarnetResponse,
 };
 
 impl Client {
@@ -19,6 +19,16 @@ impl Client {
     pub async fn carnet_get(&self, carnet_id: i64) -> Result<CarnetResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}");
         self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
+            Method::GET,
+            &path,
+            None,
+        )
+        .await
+    }
+
+    pub async fn carnet_detail_get(&self, carnet_id: i64) -> Result<CarnetDetailResponse, Error> {
+        let path = format!("/v1/carnet/{carnet_id}");
+        self.send_authenticated_billing::<serde_json::Value, CarnetDetailResponse>(
             Method::GET,
             &path,
             None,
@@ -82,6 +92,19 @@ impl Client {
         .await
     }
 
+    pub async fn carnet_cancel_response(
+        &self,
+        carnet_id: i64,
+    ) -> Result<BillingActionResponse, Error> {
+        let path = format!("/v1/carnet/{carnet_id}/cancel");
+        self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
+            Method::PUT,
+            &path,
+            None,
+        )
+        .await
+    }
+
     pub async fn carnet_cancel_parcel(
         &self,
         carnet_id: i64,
@@ -89,6 +112,20 @@ impl Client {
     ) -> Result<CarnetResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/cancel");
         self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
+            Method::PUT,
+            &path,
+            None,
+        )
+        .await
+    }
+
+    pub async fn carnet_cancel_parcel_response(
+        &self,
+        carnet_id: i64,
+        parcel: i32,
+    ) -> Result<BillingActionResponse, Error> {
+        let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/cancel");
+        self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
             Method::PUT,
             &path,
             None,

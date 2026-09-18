@@ -11,21 +11,30 @@ pub mod split;
 pub mod types;
 pub mod webhooks;
 
+#[cfg(test)]
+mod lifecycle_tests;
+
 pub use client::{Client, ClientBuilder};
 pub use environment::{Endpoints, Environment, PRODUCTION_ENDPOINTS, SANDBOX_ENDPOINTS};
 pub use error::Error;
 pub use types::{
-    BillingAddress, BillingBankingBillet, BillingBilletConfigurations, BillingChargeCreateRequest,
-    BillingChargeData, BillingChargeDetailBankingBillet, BillingChargeDetailData,
-    BillingChargeDetailPayment, BillingChargeDetailResponse, BillingChargeHistoryEntry,
-    BillingChargeOneStepRequest, BillingChargePayRequest, BillingChargeResponse,
-    BillingChargeShipping, BillingCreditCard, BillingCustomer, BillingItem, BillingMarketplace,
-    BillingNotificationResponse, BillingPayment, BillingPdf, BillingPix, BillingRepasse,
-    BillingShipping, CarnetCharge, CarnetChargePdf, CarnetCreateRequest, CarnetCustomer,
-    CarnetData, CarnetHistoryRequest, CarnetMetadataRequest, CarnetParcel, CarnetParcelRequest,
-    CarnetParcelsRequest, CarnetPdf, CarnetResponse, CobCalendario, CobInfoAdicional, CobPayload,
-    CobPessoa, CobResponse, CobValor, CobvCalendario, CobvPayload, CobvResponse,
-    PixTransactionDetailResponse, PixTransactionPayload, PixTransactionResponse, SplitConfig,
-    SplitConfigResponse, SplitFavorecido, SplitLancamento, SplitLinkResponse, SplitParte,
-    SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse, WebhooksListResponse,
+    BillingActionResponse, BillingAddress, BillingBankingBillet, BillingBilletConfigurations,
+    BillingChargeCreateRequest, BillingChargeData, BillingChargeDetailBankingBillet,
+    BillingChargeDetailData, BillingChargeDetailPayment, BillingChargeDetailResponse,
+    BillingChargeHistoryEntry, BillingChargeListBankingBillet, BillingChargeListCarnet,
+    BillingChargeListItem, BillingChargeListParams, BillingChargeListPayment,
+    BillingChargeListQuery, BillingChargeListResponse, BillingChargeOneStepRequest,
+    BillingChargePayRequest, BillingChargeReadBankingBillet, BillingChargeReadData,
+    BillingChargeReadPayment, BillingChargeReadResponse, BillingChargeResponse,
+    BillingChargeShipping, BillingCreditCard, BillingCustomer, BillingItem,
+    BillingLifecycleCustomer, BillingMarketplace, BillingNotificationResponse, BillingPagination,
+    BillingPayment, BillingPdf, BillingPix, BillingRepasse, BillingShipping, CarnetCharge,
+    CarnetChargePdf, CarnetCreateRequest, CarnetCustomer, CarnetData, CarnetDetailCharge,
+    CarnetDetailData, CarnetDetailResponse, CarnetHistoryRequest, CarnetMetadataRequest,
+    CarnetParcel, CarnetParcelNumber, CarnetParcelRequest, CarnetParcelsRequest, CarnetPdf,
+    CarnetResponse, CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor,
+    CobvCalendario, CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
+    PixTransactionResponse, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
+    SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
+    WebhooksListResponse,
 };

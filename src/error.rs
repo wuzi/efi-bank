@@ -15,6 +15,24 @@ pub enum Error {
     },
 }
 
+impl Error {
+    #[must_use]
+    pub const fn status_code(&self) -> Option<reqwest::StatusCode> {
+        match self {
+            Self::RequestFailed { status, .. } => Some(*status),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn response_body(&self) -> Option<&str> {
+        match self {
+            Self::RequestFailed { body, .. } => Some(body),
+            _ => None,
+        }
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

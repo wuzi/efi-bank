@@ -15,6 +15,7 @@ pub struct Client {
     pub(crate) environment: Environment,
     pub(crate) http: HttpClient,
     pub(crate) token: Mutex<Option<AccessToken>>,
+    endpoints_override: Option<Endpoints>,
 }
 
 enum MtlsSource {
@@ -151,12 +152,35 @@ impl Client {
             environment,
             http: http_client,
             token: Mutex::new(None),
+            endpoints_override: None,
         }
     }
 
     #[must_use]
     pub const fn endpoints(&self) -> Endpoints {
-        self.environment.endpoints()
+        match self.endpoints_override {
+            Some(endpoints) => endpoints,
+            None => self.environment.endpoints(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_billing_client(base_url: &str) -> Self {
+        let base_url = Box::leak(base_url.to_owned().into_boxed_str());
+        let authorize_url = Box::leak(format!("{base_url}/v1/authorize").into_boxed_str());
+        let mut client = Self::from_parts(
+            "fixture-client".into(),
+            "fixture-secret".into(),
+            Environment::Sandbox,
+            HttpClient::new(),
+        );
+        client.endpoints_override = Some(Endpoints {
+            pix_api_base_url: base_url,
+            pix_api_oauth_token_url: authorize_url,
+            billing_api_base_url: base_url,
+            billing_api_oauth_token_url: authorize_url,
+        });
+        client
     }
 
     pub(crate) async fn send_authenticated<Req, Res>(

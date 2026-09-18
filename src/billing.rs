@@ -3,8 +3,10 @@ use reqwest::Method;
 use crate::client::Client;
 use crate::error::Error;
 use crate::types::{
-    BillingChargeCreateRequest, BillingChargeDetailResponse, BillingChargeOneStepRequest,
-    BillingChargePayRequest, BillingChargeResponse, BillingNotificationResponse,
+    BillingActionResponse, BillingChargeCreateRequest, BillingChargeDetailResponse,
+    BillingChargeListQuery, BillingChargeListResponse, BillingChargeOneStepRequest,
+    BillingChargePayRequest, BillingChargeReadResponse, BillingChargeResponse,
+    BillingNotificationResponse,
 };
 
 impl Client {
@@ -47,6 +49,57 @@ impl Client {
         .await
     }
 
+    pub async fn billing_charge_read(
+        &self,
+        charge_id: i64,
+    ) -> Result<BillingChargeReadResponse, Error> {
+        let path = format!("/v1/charge/{charge_id}");
+        self.send_authenticated_billing::<serde_json::Value, BillingChargeReadResponse>(
+            Method::GET,
+            &path,
+            None,
+        )
+        .await
+    }
+
+    pub async fn billing_charges_list(
+        &self,
+        query: &BillingChargeListQuery,
+    ) -> Result<BillingChargeListResponse, Error> {
+        let mut url = reqwest::Url::parse("https://unused.invalid/v1/charges")
+            .expect("the static lifecycle charges URL is valid");
+        {
+            let mut pairs = url.query_pairs_mut();
+            pairs
+                .append_pair("charge_type", &query.charge_type)
+                .append_pair("begin_date", &query.begin_date)
+                .append_pair("end_date", &query.end_date);
+            if let Some(custom_id) = &query.custom_id {
+                pairs.append_pair("custom_id", custom_id);
+            }
+            if let Some(limit) = query.limit {
+                pairs.append_pair("limit", &limit.to_string());
+            }
+            if let Some(page) = query.page {
+                pairs.append_pair("page", &page.to_string());
+            }
+            if let Some(offset) = query.offset {
+                pairs.append_pair("offset", &offset.to_string());
+            }
+        }
+        let path = format!(
+            "{}?{}",
+            url.path(),
+            url.query().expect("lifecycle charges query is not empty")
+        );
+        self.send_authenticated_billing::<serde_json::Value, BillingChargeListResponse>(
+            Method::GET,
+            &path,
+            None,
+        )
+        .await
+    }
+
     pub async fn billing_charge_cancel(&self, charge_id: i64) -> Result<(), Error> {
         let path = format!("/v1/charge/{charge_id}/cancel");
         self.send_authenticated_billing::<serde_json::Value, serde_json::Value>(
@@ -56,6 +109,19 @@ impl Client {
         )
         .await?;
         Ok(())
+    }
+
+    pub async fn billing_charge_cancel_response(
+        &self,
+        charge_id: i64,
+    ) -> Result<BillingActionResponse, Error> {
+        let path = format!("/v1/charge/{charge_id}/cancel");
+        self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
+            Method::PUT,
+            &path,
+            None,
+        )
+        .await
     }
 
     pub async fn billing_notification_get(
