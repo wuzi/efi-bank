@@ -617,6 +617,7 @@ pub struct BillingChargeReadData {
     pub custom_id: Option<String>,
     pub created_at: Option<String>,
     pub notification_url: Option<String>,
+    pub items: Option<Vec<BillingItemResponse>>,
     pub customer: Option<BillingLifecycleCustomer>,
     pub payment: Option<BillingChargeReadPayment>,
 }
@@ -757,6 +758,7 @@ pub struct CarnetCustomer {
     pub email: Option<String>,
     pub phone_number: Option<String>,
     pub birth: Option<String>,
+    pub address: Option<BillingAddress>,
     pub juridical_person: Option<BillingJuridicalPerson>,
 }
 

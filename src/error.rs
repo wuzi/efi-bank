@@ -9,6 +9,7 @@ pub enum Error {
     Json(serde_json::Error),
     AuthUnavailable,
     EmptyResponse,
+    InvalidArtifact(&'static str),
     RequestFailed {
         status: reqwest::StatusCode,
         body: String,
@@ -44,6 +45,7 @@ impl Display for Error {
             Self::Http(error) => write!(f, "http error: {error}"),
             Self::Json(error) => write!(f, "json error: {error}"),
             Self::AuthUnavailable => write!(f, "authentication token is unavailable"),
+            Self::InvalidArtifact(message) => write!(f, "invalid provider artifact: {message}"),
             Self::EmptyResponse => write!(f, "received empty response from server"),
             Self::RequestFailed { status, body } => {
                 write!(f, "request failed with status {status}: {body}")

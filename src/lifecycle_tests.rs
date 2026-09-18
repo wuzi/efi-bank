@@ -334,3 +334,33 @@ fn carnet_parcel_number_rejects_zero_and_non_numeric_strings() {
     assert!(serde_json::from_str::<CarnetParcelNumber>("0").is_err());
     assert!(serde_json::from_str::<CarnetParcelNumber>(r#""second""#).is_err());
 }
+
+#[test]
+fn carnet_customer_round_trips_optional_address_without_changing_legacy_wire_shape() {
+    let address = serde_json::json!({
+        "street":"Rua Um", "number":"10", "neighborhood":"Centro",
+        "zipcode":"30110000", "city":"Belo Horizonte", "state":"MG", "complement":"Sala 2"
+    });
+    let customer: crate::CarnetCustomer = serde_json::from_value(serde_json::json!({
+        "name":"Example", "cpf":"94271564656", "address":address
+    }))
+    .unwrap();
+    let encoded = serde_json::to_value(customer).unwrap();
+    assert_eq!(encoded["address"], address);
+    let legacy = serde_json::json!({"name":"Example", "cpf":"94271564656"});
+    let customer: crate::CarnetCustomer = serde_json::from_value(legacy.clone()).unwrap();
+    assert_eq!(serde_json::to_value(customer).unwrap(), legacy);
+}
+
+#[test]
+fn charge_read_preserves_items_for_bounded_carnet_verification() {
+    let fixture = serde_json::json!({"code":200,"data":{
+        "charge_id":11,"total":1000,"status":"waiting",
+        "items":[{"name":"Service", "value":1000, "amount":1}]
+    }});
+    let read: crate::BillingChargeReadResponse = serde_json::from_value(fixture.clone()).unwrap();
+    assert_eq!(
+        serde_json::to_value(read).unwrap()["data"]["items"],
+        fixture["data"]["items"]
+    );
+}
