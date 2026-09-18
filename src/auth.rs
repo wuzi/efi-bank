@@ -29,14 +29,20 @@ struct OAuthResponse {
 
 impl Client {
     pub async fn authenticate(&self) -> Result<(), Error> {
-        let endpoints = self.endpoints();
-        self.authenticate_with_url(endpoints.pix_api_oauth_token_url)
-            .await
+        self.refresh_access_token().await.map(|_| ())
     }
 
     pub async fn authenticate_billing(&self) -> Result<(), Error> {
-        let endpoints = self.endpoints();
-        self.authenticate_with_url(endpoints.billing_api_oauth_token_url)
+        self.refresh_billing_access_token().await.map(|_| ())
+    }
+
+    pub(crate) async fn refresh_access_token(&self) -> Result<String, Error> {
+        self.authenticate_with_url(self.endpoints().pix_api_oauth_token_url)
+            .await
+    }
+
+    pub(crate) async fn refresh_billing_access_token(&self) -> Result<String, Error> {
+        self.authenticate_with_url(self.endpoints().billing_api_oauth_token_url)
             .await
     }
 
@@ -52,7 +58,7 @@ impl Client {
             .await
     }
 
-    async fn authenticate_with_url(&self, token_url: &str) -> Result<(), Error> {
+    async fn authenticate_with_url(&self, token_url: &str) -> Result<String, Error> {
         let response = self
             .http
             .post(token_url)
@@ -68,17 +74,22 @@ impl Client {
         }
 
         let oauth = response.json::<OAuthResponse>().await?;
-        let expires_at = Instant::now() + Duration::from_secs(oauth.expires_in);
+        if oauth.access_token.trim().is_empty() || oauth.expires_in <= TOKEN_REFRESH_SKEW_SECS {
+            return Err(Error::AuthUnavailable);
+        }
+        let expires_at = Instant::now()
+            .checked_add(Duration::from_secs(oauth.expires_in))
+            .ok_or(Error::AuthUnavailable)?;
 
         self.token
             .lock()
             .map_err(|_| Error::AuthUnavailable)?
             .replace(AccessToken {
-                value: oauth.access_token,
+                value: oauth.access_token.clone(),
                 expires_at,
             });
 
-        Ok(())
+        Ok(oauth.access_token)
     }
 
     async fn get_valid_access_token_with_url(&self, token_url: &str) -> Result<String, Error> {
@@ -88,7 +99,7 @@ impl Client {
         };
 
         if needs_authentication {
-            self.authenticate_with_url(token_url).await?;
+            return self.authenticate_with_url(token_url).await;
         }
 
         let token = self.token.lock().map_err(|_| Error::AuthUnavailable)?;

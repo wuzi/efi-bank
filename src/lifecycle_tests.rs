@@ -60,7 +60,7 @@ mod support {
         }
     }
 
-    fn read_request(stream: &mut TcpStream) -> String {
+    pub(super) fn read_request(stream: &mut TcpStream) -> String {
         let mut bytes = Vec::new();
         let mut buffer = [0; 4096];
         loop {
@@ -362,5 +362,108 @@ fn charge_read_preserves_items_for_bounded_carnet_verification() {
     assert_eq!(
         serde_json::to_value(read).unwrap()["data"]["items"],
         fixture["data"]["items"]
+    );
+}
+
+async fn oauth_request_count(
+    initial_ttl: u64,
+    refresh_ttl: u64,
+) -> (Result<crate::BillingChargeReadResponse, Error>, Vec<String>) {
+    use std::{
+        io::Write,
+        net::TcpListener,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicBool, Ordering},
+        },
+        thread,
+        time::Duration,
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let finished = Arc::new(AtomicBool::new(false));
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let server_finished = finished.clone();
+    let server_requests = requests.clone();
+    let server = thread::spawn(move || {
+        let mut auths = 0;
+        let mut reads = 0;
+        while !server_finished.load(Ordering::SeqCst) {
+            let (mut stream, _) = match listener.accept() {
+                Ok(stream) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(error) => panic!("fixture listener: {error}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let request = support::read_request(&mut stream);
+            let first = request.lines().next().unwrap().to_owned();
+            server_requests.lock().unwrap().push(first.clone());
+            let (status, body) = if first == "POST /v1/authorize HTTP/1.1" {
+                auths += 1;
+                let ttl = if auths == 1 { initial_ttl } else { refresh_ttl };
+                (
+                    200,
+                    format!(r#"{{"access_token":"token-{auths}","expires_in":{ttl}}}"#),
+                )
+            } else {
+                assert_eq!(first, "GET /v1/charge/11 HTTP/1.1");
+                reads += 1;
+                if reads == 1 {
+                    (401, "{}".into())
+                } else {
+                    (
+                        200,
+                        r#"{"code":200,"data":{"charge_id":11,"total":1000,"status":"waiting"}}"#
+                            .into(),
+                    )
+                }
+            };
+            write!(stream, "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        }
+    });
+    let result = crate::Client::test_billing_client(&base)
+        .billing_charge_read(11)
+        .await;
+    finished.store(true, Ordering::SeqCst);
+    server.join().unwrap();
+    let requests = requests.lock().unwrap().clone();
+    (result, requests)
+}
+
+#[tokio::test]
+async fn unusable_oauth_ttl_is_rejected_before_api_request_or_extra_refresh() {
+    let (result, requests) = oauth_request_count(30, 30).await;
+    assert!(matches!(result, Err(Error::AuthUnavailable)));
+    assert_eq!(requests, ["POST /v1/authorize HTTP/1.1"]);
+    let (result, requests) = oauth_request_count(3600, 30).await;
+    assert!(matches!(result, Err(Error::AuthUnavailable)));
+    assert_eq!(
+        requests,
+        [
+            "POST /v1/authorize HTTP/1.1",
+            "GET /v1/charge/11 HTTP/1.1",
+            "POST /v1/authorize HTTP/1.1"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn cold_401_retry_reserves_at_most_four_requests() {
+    let (result, requests) = oauth_request_count(3600, 3600).await;
+    assert_eq!(result.unwrap().data.charge_id, 11);
+    assert_eq!(
+        requests,
+        [
+            "POST /v1/authorize HTTP/1.1",
+            "GET /v1/charge/11 HTTP/1.1",
+            "POST /v1/authorize HTTP/1.1",
+            "GET /v1/charge/11 HTTP/1.1"
+        ]
     );
 }

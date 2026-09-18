@@ -199,8 +199,7 @@ impl Client {
             .await?;
 
         if first_response.status() == StatusCode::UNAUTHORIZED {
-            self.authenticate().await?;
-            let refreshed_token = self.get_valid_access_token().await?;
+            let refreshed_token = self.refresh_access_token().await?;
             let retry_response = self
                 .send_with_token_typed::<Req>(&refreshed_token, method, path, payload)
                 .await?;
@@ -232,8 +231,7 @@ impl Client {
             .await?;
 
         if first_response.status() == StatusCode::UNAUTHORIZED {
-            self.authenticate_billing().await?;
-            let refreshed_token = self.get_valid_billing_access_token().await?;
+            let refreshed_token = self.refresh_billing_access_token().await?;
             let retry_response = self
                 .send_with_token_typed_base::<Req>(
                     &refreshed_token,
