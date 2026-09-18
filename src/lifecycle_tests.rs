@@ -138,16 +138,18 @@ async fn charge_list_sends_encoded_filters_and_deserializes_candidate_fields() {
 
     let result = server
         .client()
-        .billing_charges_list(&BillingChargeListQuery {
-            charge_type: "billet".into(),
-            begin_date: "2024-05-01".into(),
-            end_date: "2024-05-30".into(),
-            date_of: Some(crate::BillingChargeDateOf::Creation),
-            custom_id: Some("invoice/42".into()),
-            limit: Some(25),
-            page: Some(2),
-            offset: Some(25),
-        })
+        .billing_charges_list_with_date_of(
+            &BillingChargeListQuery {
+                charge_type: "billet".into(),
+                begin_date: "2024-05-01".into(),
+                end_date: "2024-05-30".into(),
+                custom_id: Some("invoice/42".into()),
+                limit: Some(25),
+                page: Some(2),
+                offset: Some(25),
+            },
+            Some(crate::BillingChargeDateOf::Creation),
+        )
         .await
         .unwrap();
 
@@ -494,20 +496,24 @@ async fn charge_list_preserves_optional_date_selection() {
                 body: r#"{"code":200,"data":[],"params":{"begin_date":"2024-05-01","end_date":"2024-05-30","pagination":{"limit":100,"offset":0,"page":1}}}"#,
             },
         ]);
-        let response = server
-            .client()
-            .billing_charges_list(&BillingChargeListQuery {
-                charge_type: "billet".into(),
-                begin_date: "2024-05-01".into(),
-                end_date: "2024-05-30".into(),
-                date_of,
-                custom_id: None,
-                limit: None,
-                page: None,
-                offset: None,
-            })
-            .await
-            .unwrap();
+        let query = BillingChargeListQuery {
+            charge_type: "billet".into(),
+            begin_date: "2024-05-01".into(),
+            end_date: "2024-05-30".into(),
+            custom_id: None,
+            limit: None,
+            page: None,
+            offset: None,
+        };
+        let client = server.client();
+        let response = if date_of.is_none() {
+            client.billing_charges_list(&query).await
+        } else {
+            client
+                .billing_charges_list_with_date_of(&query, date_of)
+                .await
+        }
+        .unwrap();
         assert!(response.data.is_empty());
         server.finish();
     }

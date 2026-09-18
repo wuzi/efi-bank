@@ -66,6 +66,18 @@ impl Client {
         &self,
         query: &BillingChargeListQuery,
     ) -> Result<BillingChargeListResponse, Error> {
+        self.billing_charges_list_with_date_of(query, None).await
+    }
+
+    /// List charges with an explicit choice of which date the bounds filter.
+    ///
+    /// Use `Some(BillingChargeDateOf::Creation)` when discovering a charge after
+    /// uncertain creation. `None` preserves the provider's default behavior.
+    pub async fn billing_charges_list_with_date_of(
+        &self,
+        query: &BillingChargeListQuery,
+        date_of: Option<crate::types::BillingChargeDateOf>,
+    ) -> Result<BillingChargeListResponse, Error> {
         let mut url = reqwest::Url::parse("https://unused.invalid/v1/charges")
             .expect("the static lifecycle charges URL is valid");
         {
@@ -74,7 +86,7 @@ impl Client {
                 .append_pair("charge_type", &query.charge_type)
                 .append_pair("begin_date", &query.begin_date)
                 .append_pair("end_date", &query.end_date);
-            if let Some(date_of) = query.date_of {
+            if let Some(date_of) = date_of {
                 let date_of = match date_of {
                     crate::types::BillingChargeDateOf::Creation => "creation",
                     crate::types::BillingChargeDateOf::Payment => "payment",

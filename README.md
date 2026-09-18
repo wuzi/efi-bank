@@ -20,9 +20,12 @@ attempt, and at most one token refresh and repeated API attempt after HTTP 401
 do not trigger that refresh. PDF downloads also disable retries and redirects and
 retain their trusted-host, content-type, signature, and size checks.
 
-For charge discovery, use `charge_type: "billet".into()` and
-`date_of: Some(BillingChargeDateOf::Creation)` in `BillingChargeListQuery`.
-The optional date selector also supports `Payment` and `Expired`, matching the
+For charge discovery, use `charge_type: "billet".into()` in the existing
+`BillingChargeListQuery` and call
+`billing_charges_list_with_date_of(&query, Some(BillingChargeDateOf::Creation))`.
+The original `billing_charges_list(&query)` method and query struct remain source
+compatible and omit the date selector. The additive method also supports `Payment`
+and `Expired`, matching the
 [official list contract](https://dev.efipay.com.br/markdown/charges/billet/billet_list.md).
 
 ## Features

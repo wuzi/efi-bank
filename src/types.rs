@@ -513,8 +513,6 @@ pub struct BillingChargeListQuery {
     pub charge_type: String,
     pub begin_date: String,
     pub end_date: String,
-    /// Select `Creation` explicitly when discovering a charge after uncertain creation.
-    pub date_of: Option<BillingChargeDateOf>,
     /// Correlates Efí charges with caller records; it is not an idempotency key.
     pub custom_id: Option<String>,
     pub limit: Option<u32>,
