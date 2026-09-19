@@ -223,7 +223,17 @@ async fn download_pdf(url: &str) -> Result<Vec<u8>, Error> {
         .send()
         .await?;
     if response.status() != reqwest::StatusCode::OK {
-        return Err(Error::InvalidArtifact("unsuccessful download"));
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .map(ToOwned::to_owned);
+        // Error pages are not artifacts; do not download their unbounded bodies.
+        return Err(Error::RequestFailed {
+            status: response.status(),
+            body: String::new(),
+            retry_after,
+        });
     }
     let content_type = response
         .headers()
@@ -288,7 +298,7 @@ mod artifact_tests {
     ) -> Result<Vec<u8>, Error> {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let response = format!("HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {declared_length}\r\nLocation: http://127.0.0.1:1/secret\r\nConnection: close\r\n\r\n").into_bytes();
+        let response = format!("HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {declared_length}\r\nLocation: http://127.0.0.1:1/secret\r\nRetry-After: 42\r\nConnection: close\r\n\r\n").into_bytes();
         let body = body.to_vec();
         let server = thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -302,6 +312,18 @@ mod artifact_tests {
         let result = download_pdf(&url).await;
         server.join().unwrap();
         result
+    }
+
+    #[tokio::test]
+    async fn artifact_download_preserves_http_retry_metadata() {
+        let error = fixture("429 Too Many Requests", "text/plain", b"limited", 7)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.status_code(),
+            Some(reqwest::StatusCode::TOO_MANY_REQUESTS)
+        );
+        assert_eq!(error.retry_after(), Some("42"));
     }
 
     #[tokio::test]
