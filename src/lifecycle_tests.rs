@@ -1,6 +1,6 @@
 use reqwest::StatusCode;
 
-use crate::{BillingChargeListQuery, CarnetParcelNumber, Error};
+use crate::{BillingChargeListQuery, CarnetParcelNumber, Error, WebhookPayload};
 
 mod support {
     use std::io::{Read, Write};
@@ -22,6 +22,13 @@ mod support {
 
     impl TestServer {
         pub fn start(exchanges: Vec<Exchange>) -> Self {
+            Self::start_with_headers(exchanges, &[])
+        }
+
+        pub fn start_with_headers(
+            exchanges: Vec<Exchange>,
+            response_headers: &'static [(&'static str, &'static str)],
+        ) -> Self {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let base_url = format!("http://{}", listener.local_addr().unwrap());
             let handle = thread::spawn(move || {
@@ -36,13 +43,16 @@ mod support {
                     };
                     write!(
                         stream,
-                        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
                         exchange.status,
                         reason,
                         exchange.body.len(),
-                        exchange.body,
                     )
                     .unwrap();
+                    for (name, value) in response_headers {
+                        write!(stream, "{name}: {value}\r\n").unwrap();
+                    }
+                    write!(stream, "Connection: close\r\n\r\n{}", exchange.body).unwrap();
                 }
             });
             Self {
@@ -313,17 +323,21 @@ async fn cancellations_parse_code_only_responses() {
 
 #[tokio::test]
 async fn http_failures_expose_typed_status_and_body() {
-    let server = TestServer::start(vec![
-        support::auth(),
-        Exchange {
-            request_line: "GET /v1/charge/123 HTTP/1.1",
-            status: 409,
-            body: r#"{"error":"charge_already_paid"}"#,
-        },
-    ]);
+    let server = TestServer::start_with_headers(
+        vec![
+            support::auth(),
+            Exchange {
+                request_line: "GET /v1/charge/123 HTTP/1.1",
+                status: 429,
+                body: r#"{"error":"charge_already_paid"}"#,
+            },
+        ],
+        &[("Retry-After", "42")],
+    );
     let error = server.client().billing_charge_read(123).await.unwrap_err();
 
-    assert_eq!(error.status_code(), Some(StatusCode::CONFLICT));
+    assert_eq!(error.status_code(), Some(StatusCode::TOO_MANY_REQUESTS));
+    assert_eq!(error.retry_after(), Some("42"));
     assert_eq!(
         error.response_body(),
         Some(r#"{"error":"charge_already_paid"}"#)
@@ -469,6 +483,82 @@ async fn cold_401_retry_reserves_at_most_four_requests() {
             "GET /v1/charge/11 HTTP/1.1"
         ]
     );
+}
+
+#[tokio::test]
+async fn unauthorized_post_is_not_replayed_after_token_refresh() {
+    let server = TestServer::start(vec![
+        support::auth(),
+        Exchange {
+            request_line: "POST /v2/webhook HTTP/1.1",
+            status: 401,
+            body: r#"{"error":"expired_token"}"#,
+        },
+        support::auth(),
+        Exchange {
+            request_line: "POST /v2/webhook HTTP/1.1",
+            status: 200,
+            body: r#"{"id":"fixture-webhook","url":"https://example.com/webhook"}"#,
+        },
+    ]);
+
+    let client = server.client();
+    let error = client
+        .webhook_create(&WebhookPayload {
+            url: "https://example.com/webhook".into(),
+            chave: "fixture-key".into(),
+        })
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.status_code(), Some(StatusCode::UNAUTHORIZED));
+    assert_eq!(
+        client
+            .webhook_create(&WebhookPayload {
+                url: "https://example.com/webhook".into(),
+                chave: "fixture-key".into(),
+            })
+            .await
+            .unwrap()
+            .id,
+        "fixture-webhook"
+    );
+    server.finish();
+}
+
+#[tokio::test]
+async fn unauthorized_billing_mutation_is_not_replayed_after_token_refresh() {
+    let server = TestServer::start(vec![
+        support::auth(),
+        Exchange {
+            request_line: "PUT /v1/charge/123/cancel HTTP/1.1",
+            status: 401,
+            body: r#"{"error":"expired_token"}"#,
+        },
+        support::auth(),
+        Exchange {
+            request_line: "PUT /v1/charge/123/cancel HTTP/1.1",
+            status: 200,
+            body: r#"{"code":200}"#,
+        },
+    ]);
+
+    let client = server.client();
+    let error = client
+        .billing_charge_cancel_response(123)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.status_code(), Some(StatusCode::UNAUTHORIZED));
+    assert_eq!(
+        client
+            .billing_charge_cancel_response(123)
+            .await
+            .unwrap()
+            .code,
+        200
+    );
+    server.finish();
 }
 
 #[tokio::test]

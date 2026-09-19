@@ -15,10 +15,11 @@ client with `.retry(reqwest::retry::never())`,
 `.connect_timeout(...)` values to preserve these accounting bounds.
 
 OAuth handling remains explicit: one initial authentication when needed, one API
-attempt, and at most one token refresh and repeated API attempt after HTTP 401
-(up to four native requests from a cold client). Transport errors and rate limits
-do not trigger that refresh. PDF downloads also disable retries and redirects and
-retain their trusted-host, content-type, signature, and size checks.
+attempt, and at most one token refresh and repeated GET after HTTP 401 (up to
+four native requests from a cold client). Mutations are never replayed after a
+401. Transport errors and rate limits do not trigger that refresh. PDF downloads
+also disable retries and redirects and retain their trusted-host, content-type,
+signature, and size checks.
 
 For charge discovery, use `charge_type: "billet".into()` in the existing
 `BillingChargeListQuery` and call
@@ -265,7 +266,7 @@ use efi_bank::Error;
 
 match client.cob_create(&payload).await {
     Ok(response) => println!("Success: {}", response.txid),
-    Err(Error::RequestFailed { status, body }) => {
+    Err(Error::RequestFailed { status, body, .. }) => {
         eprintln!("HTTP Error {}: {}", status, body);
     }
     Err(Error::Json(e)) => eprintln!("JSON parsing error: {}", e),

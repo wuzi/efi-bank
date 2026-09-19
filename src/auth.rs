@@ -69,8 +69,17 @@ impl Client {
 
         if !response.status().is_success() {
             let status = response.status();
+            let retry_after = response
+                .headers()
+                .get("Retry-After")
+                .and_then(|value| value.to_str().ok())
+                .map(ToOwned::to_owned);
             let body = response.text().await.unwrap_or_else(|_| String::new());
-            return Err(Error::RequestFailed { status, body });
+            return Err(Error::RequestFailed {
+                status,
+                body,
+                retry_after,
+            });
         }
 
         let oauth = response.json::<OAuthResponse>().await?;

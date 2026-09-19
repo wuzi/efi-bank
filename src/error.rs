@@ -13,6 +13,7 @@ pub enum Error {
     RequestFailed {
         status: reqwest::StatusCode,
         body: String,
+        retry_after: Option<String>,
     },
 }
 
@@ -32,6 +33,15 @@ impl Error {
             _ => None,
         }
     }
+
+    /// Returns the native `Retry-After` value without interpreting a duration or HTTP date.
+    #[must_use]
+    pub fn retry_after(&self) -> Option<&str> {
+        match self {
+            Self::RequestFailed { retry_after, .. } => retry_after.as_deref(),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Error {
@@ -47,7 +57,7 @@ impl Display for Error {
             Self::AuthUnavailable => write!(f, "authentication token is unavailable"),
             Self::InvalidArtifact(message) => write!(f, "invalid provider artifact: {message}"),
             Self::EmptyResponse => write!(f, "received empty response from server"),
-            Self::RequestFailed { status, body } => {
+            Self::RequestFailed { status, body, .. } => {
                 write!(f, "request failed with status {status}: {body}")
             }
         }

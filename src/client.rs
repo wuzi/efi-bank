@@ -210,8 +210,12 @@ impl Client {
         let first_response = self
             .send_with_token_typed::<Req>(&token, method.clone(), path, payload)
             .await?;
+        let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
+        if unauthorized {
+            self.clear_rejected_token(&token)?;
+        }
 
-        if first_response.status() == StatusCode::UNAUTHORIZED {
+        if method == Method::GET && unauthorized {
             let refreshed_token = self.refresh_access_token().await?;
             let retry_response = self
                 .send_with_token_typed::<Req>(&refreshed_token, method, path, payload)
@@ -242,8 +246,12 @@ impl Client {
                 payload,
             )
             .await?;
+        let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
+        if unauthorized {
+            self.clear_rejected_token(&token)?;
+        }
 
-        if first_response.status() == StatusCode::UNAUTHORIZED {
+        if method == Method::GET && unauthorized {
             let refreshed_token = self.refresh_billing_access_token().await?;
             let retry_response = self
                 .send_with_token_typed_base::<Req>(
@@ -258,6 +266,17 @@ impl Client {
         }
 
         Self::parse_response::<Res>(first_response).await
+    }
+
+    fn clear_rejected_token(&self, rejected_token: &str) -> Result<(), Error> {
+        let mut cached = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
+        if cached
+            .as_ref()
+            .is_some_and(|current| current.value == rejected_token)
+        {
+            cached.take();
+        }
+        Ok(())
     }
 
     async fn send_with_token_typed<Req>(
@@ -308,8 +327,17 @@ impl Client {
     {
         if !response.status().is_success() {
             let status = response.status();
+            let retry_after = response
+                .headers()
+                .get("Retry-After")
+                .and_then(|value| value.to_str().ok())
+                .map(ToOwned::to_owned);
             let body = response.text().await.unwrap_or_else(|_| String::new());
-            return Err(Error::RequestFailed { status, body });
+            return Err(Error::RequestFailed {
+                status,
+                body,
+                retry_after,
+            });
         }
 
         let body = response.text().await?;
