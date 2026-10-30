@@ -33,8 +33,9 @@ pub use types::{
     CarnetDetailData, CarnetDetailResponse, CarnetHistoryRequest, CarnetMetadataRequest,
     CarnetParcel, CarnetParcelNumber, CarnetParcelRequest, CarnetParcelsRequest, CarnetPdf,
     CarnetResponse, CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor,
-    CobvCalendario, CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
-    PixTransactionResponse, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
+    CobvCalendario, CobvPayload, CobvResponse, PixRefundPayload, PixRefundResponse,
+    PixTransactionDetailResponse, PixTransactionPayload, PixTransactionResponse, PixWebhookEvent,
+    PixWebhookPix, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
     SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
     WebhooksListResponse,
 };

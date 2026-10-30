@@ -505,8 +505,7 @@ async fn unauthorized_post_is_not_replayed_after_token_refresh() {
     let client = server.client();
     let error = client
         .webhook_create(&WebhookPayload {
-            url: "https://example.com/webhook".into(),
-            chave: "fixture-key".into(),
+            webhook_url: "https://example.com/webhook".into(),
         })
         .await
         .unwrap_err();
@@ -515,8 +514,7 @@ async fn unauthorized_post_is_not_replayed_after_token_refresh() {
     assert_eq!(
         client
             .webhook_create(&WebhookPayload {
-                url: "https://example.com/webhook".into(),
-                chave: "fixture-key".into(),
+                webhook_url: "https://example.com/webhook".into(),
             })
             .await
             .unwrap()

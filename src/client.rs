@@ -1,5 +1,5 @@
-use std::sync::Mutex;
-use std::{fs, path::PathBuf};
+use tokio::sync::Mutex;
+use std::{fs, path::PathBuf, time::Duration};
 
 use reqwest::{Client as HttpClient, Identity, Method, StatusCode};
 use serde::Serialize;
@@ -14,8 +14,8 @@ pub(crate) fn http_client_builder() -> reqwest::ClientBuilder {
     HttpClient::builder()
         .retry(reqwest::retry::never())
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(20))
-        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(Duration::from_secs(20))
+        .connect_timeout(Duration::from_secs(5))
 }
 
 pub struct Client {
@@ -23,7 +23,8 @@ pub struct Client {
     pub(crate) secret: String,
     pub(crate) environment: Environment,
     pub(crate) http: HttpClient,
-    pub(crate) token: Mutex<Option<AccessToken>>,
+    pub(crate) pix_token: Mutex<Option<AccessToken>>,
+    pub(crate) billing_token: Mutex<Option<AccessToken>>,
     endpoints_override: Option<Endpoints>,
 }
 
@@ -153,7 +154,7 @@ impl ClientBuilder {
 }
 
 impl Client {
-    const fn from_parts(
+    fn from_parts(
         client_id: String,
         client_secret: String,
         environment: Environment,
@@ -164,7 +165,8 @@ impl Client {
             secret: client_secret,
             environment,
             http: http_client,
-            token: Mutex::new(None),
+            pix_token: Mutex::new(None),
+            billing_token: Mutex::new(None),
             endpoints_override: None,
         }
     }
@@ -212,7 +214,7 @@ impl Client {
             .await?;
         let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
         if unauthorized {
-            self.clear_rejected_token(&token)?;
+            self.clear_rejected_pix_token(&token).await;
         }
 
         if method == Method::GET && unauthorized {
@@ -248,7 +250,7 @@ impl Client {
             .await?;
         let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
         if unauthorized {
-            self.clear_rejected_token(&token)?;
+            self.clear_rejected_billing_token(&token).await;
         }
 
         if method == Method::GET && unauthorized {
@@ -268,15 +270,24 @@ impl Client {
         Self::parse_response::<Res>(first_response).await
     }
 
-    fn clear_rejected_token(&self, rejected_token: &str) -> Result<(), Error> {
-        let mut cached = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
+    async fn clear_rejected_pix_token(&self, rejected_token: &str) {
+        let mut cached = self.pix_token.lock().await;
         if cached
             .as_ref()
             .is_some_and(|current| current.value == rejected_token)
         {
             cached.take();
         }
-        Ok(())
+    }
+
+    async fn clear_rejected_billing_token(&self, rejected_token: &str) {
+        let mut cached = self.billing_token.lock().await;
+        if cached
+            .as_ref()
+            .is_some_and(|current| current.value == rejected_token)
+        {
+            cached.take();
+        }
     }
 
     async fn send_with_token_typed<Req>(
@@ -321,7 +332,7 @@ impl Client {
         Ok(request.send().await?)
     }
 
-    async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
+    pub(crate) async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
     where
         Res: DeserializeOwned,
     {
