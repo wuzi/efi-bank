@@ -1,11 +1,10 @@
-use std::sync::Mutex;
 use std::{fs, path::PathBuf};
 
 use reqwest::{Client as HttpClient, Identity, Method, StatusCode};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::auth::AccessToken;
+use crate::auth::TokenState;
 use crate::environment::{Endpoints, Environment};
 use crate::error::Error;
 
@@ -23,7 +22,10 @@ pub struct Client {
     pub(crate) secret: String,
     pub(crate) environment: Environment,
     pub(crate) http: HttpClient,
-    pub(crate) token: Mutex<Option<AccessToken>>,
+    pub(crate) pix_token: TokenState,
+    pub(crate) billing_token: TokenState,
+    pub(crate) api_response_limit: usize,
+    pub(crate) oauth_response_limit: usize,
     endpoints_override: Option<Endpoints>,
 }
 
@@ -38,6 +40,8 @@ pub struct ClientBuilder {
     environment: Environment,
     http: Option<HttpClient>,
     mtls_source: Option<MtlsSource>,
+    api_response_limit: usize,
+    oauth_response_limit: usize,
 }
 
 impl Default for ClientBuilder {
@@ -48,6 +52,8 @@ impl Default for ClientBuilder {
             environment: Environment::Sandbox,
             http: None,
             mtls_source: None,
+            api_response_limit: 8 * 1024 * 1024,
+            oauth_response_limit: 1024 * 1024,
         }
     }
 }
@@ -114,7 +120,26 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the API JSON/status/error body limit in bytes (default 8 MiB).
+    /// This engineering limit is not a provider maximum. Zero is rejected.
+    #[must_use]
+    pub const fn api_response_limit(mut self, bytes: usize) -> Self {
+        self.api_response_limit = bytes;
+        self
+    }
+
+    /// Set the OAuth success/error body limit in bytes (default 1 MiB).
+    /// Zero is rejected; unusually large responses can opt into a larger bound.
+    #[must_use]
+    pub const fn oauth_response_limit(mut self, bytes: usize) -> Self {
+        self.oauth_response_limit = bytes;
+        self
+    }
+
     pub fn build(self) -> Result<Client, Error> {
+        if self.api_response_limit == 0 || self.oauth_response_limit == 0 {
+            return Err(Error::BuilderConflict("response limits must be nonzero"));
+        }
         let client_id = self.id.ok_or(Error::BuilderMissingField("client_id"))?;
         let client_secret = self
             .secret
@@ -143,17 +168,16 @@ impl ClientBuilder {
             http_client_builder().build()?
         };
 
-        Ok(Client::from_parts(
-            client_id,
-            client_secret,
-            self.environment,
-            http_client,
-        ))
+        let mut client =
+            Client::from_parts(client_id, client_secret, self.environment, http_client);
+        client.api_response_limit = self.api_response_limit;
+        client.oauth_response_limit = self.oauth_response_limit;
+        Ok(client)
     }
 }
 
 impl Client {
-    const fn from_parts(
+    fn from_parts(
         client_id: String,
         client_secret: String,
         environment: Environment,
@@ -164,7 +188,10 @@ impl Client {
             secret: client_secret,
             environment,
             http: http_client,
-            token: Mutex::new(None),
+            pix_token: TokenState::default(),
+            billing_token: TokenState::default(),
+            api_response_limit: 8 * 1024 * 1024,
+            oauth_response_limit: 1024 * 1024,
             endpoints_override: None,
         }
     }
@@ -179,14 +206,17 @@ impl Client {
 
     #[cfg(test)]
     pub(crate) fn test_billing_client(base_url: &str) -> Self {
+        Self::test_client_from_builder(
+            base_url,
+            ClientBuilder::new().credentials("fixture-client", "fixture-secret"),
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_client_from_builder(base_url: &str, builder: ClientBuilder) -> Self {
         let base_url = Box::leak(base_url.to_owned().into_boxed_str());
         let authorize_url = Box::leak(format!("{base_url}/v1/authorize").into_boxed_str());
-        let mut client = Self::from_parts(
-            "fixture-client".into(),
-            "fixture-secret".into(),
-            Environment::Sandbox,
-            http_client_builder().build().unwrap(),
-        );
+        let mut client = builder.build().unwrap();
         client.endpoints_override = Some(Endpoints {
             pix_api_base_url: base_url,
             pix_api_oauth_token_url: authorize_url,
@@ -194,6 +224,24 @@ impl Client {
             billing_api_oauth_token_url: authorize_url,
         });
         client
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_distinct_oauth(&mut self) {
+        let url = Box::leak(
+            format!("{}/oauth/token", self.endpoints().pix_api_base_url).into_boxed_str(),
+        );
+        self.endpoints_override
+            .as_mut()
+            .unwrap()
+            .pix_api_oauth_token_url = url;
+    }
+
+    pub(crate) fn token_state(&self, domain: Domain) -> &TokenState {
+        match domain {
+            Domain::Pix => &self.pix_token,
+            Domain::Billing => &self.billing_token,
+        }
     }
 
     pub(crate) async fn send_authenticated<Req, Res>(
@@ -206,24 +254,10 @@ impl Client {
         Req: Serialize + Sync,
         Res: DeserializeOwned,
     {
-        let token = self.get_valid_access_token().await?;
-        let first_response = self
-            .send_with_token_typed::<Req>(&token, method.clone(), path, payload)
+        let response = self
+            .authenticated_attempt(Domain::Pix, method, path, payload)
             .await?;
-        let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
-        if unauthorized {
-            self.clear_rejected_token(&token)?;
-        }
-
-        if method == Method::GET && unauthorized {
-            let refreshed_token = self.refresh_access_token().await?;
-            let retry_response = self
-                .send_with_token_typed::<Req>(&refreshed_token, method, path, payload)
-                .await?;
-            return Self::parse_response::<Res>(retry_response).await;
-        }
-
-        Self::parse_response::<Res>(first_response).await
+        self.parse_json(response).await
     }
 
     pub(crate) async fn send_authenticated_billing<Req, Res>(
@@ -236,52 +270,31 @@ impl Client {
         Req: Serialize + Sync,
         Res: DeserializeOwned,
     {
-        let token = self.get_valid_billing_access_token().await?;
-        let first_response = self
-            .send_with_token_typed_base::<Req>(
-                &token,
-                self.endpoints().billing_api_base_url,
-                method.clone(),
-                path,
-                payload,
-            )
+        let response = self
+            .authenticated_attempt(Domain::Billing, method, path, payload)
             .await?;
-        let unauthorized = first_response.status() == StatusCode::UNAUTHORIZED;
-        if unauthorized {
-            self.clear_rejected_token(&token)?;
-        }
-
-        if method == Method::GET && unauthorized {
-            let refreshed_token = self.refresh_billing_access_token().await?;
-            let retry_response = self
-                .send_with_token_typed_base::<Req>(
-                    &refreshed_token,
-                    self.endpoints().billing_api_base_url,
-                    method,
-                    path,
-                    payload,
-                )
-                .await?;
-            return Self::parse_response::<Res>(retry_response).await;
-        }
-
-        Self::parse_response::<Res>(first_response).await
+        self.parse_json(response).await
     }
 
-    fn clear_rejected_token(&self, rejected_token: &str) -> Result<(), Error> {
-        let mut cached = self.token.lock().map_err(|_| Error::AuthUnavailable)?;
-        if cached
-            .as_ref()
-            .is_some_and(|current| current.value == rejected_token)
-        {
-            cached.take();
-        }
+    pub(crate) async fn send_authenticated_status<Req>(
+        &self,
+        method: Method,
+        path: &str,
+        payload: Option<&Req>,
+    ) -> Result<(), Error>
+    where
+        Req: Serialize + Sync,
+    {
+        let response = self
+            .authenticated_attempt(Domain::Pix, method, path, payload)
+            .await?;
+        crate::response::read_response(response, self.api_response_limit).await?;
         Ok(())
     }
 
-    async fn send_with_token_typed<Req>(
+    async fn authenticated_attempt<Req>(
         &self,
-        access_token: &str,
+        domain: Domain,
         method: Method,
         path: &str,
         payload: Option<&Req>,
@@ -289,62 +302,96 @@ impl Client {
     where
         Req: Serialize + Sync,
     {
-        self.send_with_token_typed_base(
-            access_token,
-            self.endpoints().pix_api_base_url,
-            method,
-            path,
-            payload,
-        )
-        .await
+        let mut token = self.access_token(domain).await?;
+        // Only GET may replay once. Every other method returns its first native result.
+        for attempt in 0..=1 {
+            let mut request = self
+                .http
+                .request(
+                    method.clone(),
+                    format!("{}{path}", domain.base_url(self.endpoints())),
+                )
+                .bearer_auth(&token);
+            if let Some(payload) = payload {
+                request = request.json(payload);
+            }
+            let response = request.send().await?;
+            if response.status() != StatusCode::UNAUTHORIZED {
+                return Ok(response);
+            }
+            self.token_state(domain).clear_rejected(&token)?;
+            if method != Method::GET || attempt == 1 {
+                return Ok(response);
+            }
+            drop(response);
+            // A delayed rejection of A cannot erase a newer B. The gate rechecks B.
+            token = self.access_token(domain).await?;
+        }
+        unreachable!("the second response always returns")
     }
 
-    async fn send_with_token_typed_base<Req>(
+    async fn parse_json<Res: DeserializeOwned>(
         &self,
-        access_token: &str,
-        base_url: &str,
-        method: Method,
-        path: &str,
-        payload: Option<&Req>,
-    ) -> Result<reqwest::Response, Error>
-    where
-        Req: Serialize + Sync,
-    {
-        let url = format!("{base_url}{path}");
-
-        let mut request = self.http.request(method, url).bearer_auth(access_token);
-
-        if let Some(json_payload) = payload {
-            request = request.json(json_payload);
-        }
-
-        Ok(request.send().await?)
-    }
-
-    async fn parse_response<Res>(response: reqwest::Response) -> Result<Res, Error>
-    where
-        Res: DeserializeOwned,
-    {
-        if !response.status().is_success() {
-            let status = response.status();
-            let retry_after = response
-                .headers()
-                .get("Retry-After")
-                .and_then(|value| value.to_str().ok())
-                .map(ToOwned::to_owned);
-            let body = response.text().await.unwrap_or_else(|_| String::new());
-            return Err(Error::RequestFailed {
-                status,
-                body,
-                retry_after,
-            });
-        }
-
-        let body = response.text().await?;
-        if body.trim().is_empty() {
+        response: reqwest::Response,
+    ) -> Result<Res, Error> {
+        let bytes = crate::response::read_response(response, self.api_response_limit).await?;
+        if bytes.iter().all(u8::is_ascii_whitespace) {
             return Err(Error::EmptyResponse);
         }
-
-        Ok(serde_json::from_str(&body)?)
+        Ok(serde_json::from_slice(&bytes)?)
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum Domain {
+    Pix,
+    Billing,
+}
+
+impl Domain {
+    pub(crate) const fn token_url(self, endpoints: Endpoints) -> &'static str {
+        match self {
+            Self::Pix => endpoints.pix_api_oauth_token_url,
+            Self::Billing => endpoints.billing_api_oauth_token_url,
+        }
+    }
+    const fn base_url(self, endpoints: Endpoints) -> &'static str {
+        match self {
+            Self::Pix => endpoints.pix_api_base_url,
+            Self::Billing => endpoints.billing_api_base_url,
+        }
+    }
+}
+
+/// Encode each supplied identity exactly once; no decoding or restrictive provider alphabet.
+/// Literal dot segments are rejected before authentication and cannot be revived by URL parsing.
+pub(crate) fn resource_path(segments: &[&str]) -> Result<String, Error> {
+    use std::fmt::Write;
+    let mut path = String::new();
+    for segment in segments {
+        if matches!(*segment, "" | "." | "..") {
+            return Err(Error::InvalidPath);
+        }
+        path.push('/');
+        for byte in segment.bytes() {
+            if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+                path.push(char::from(byte));
+            } else {
+                write!(&mut path, "%{byte:02X}").expect("formatting into a String cannot fail");
+            }
+        }
+    }
+    Ok(path)
+}
+
+/// Encode query pairs on SDK-owned static paths; identifiers use resource_path instead.
+pub(crate) fn query_path(path: &str, pairs: &[(&str, &str)]) -> String {
+    let mut url = reqwest::Url::parse(&format!("https://unused.invalid{path}"))
+        .expect("SDK-owned static query path is valid");
+    url.query_pairs_mut().extend_pairs(pairs.iter().copied());
+    format!(
+        "{}?{}",
+        url.path(),
+        url.query().expect("query pairs supplied")
+    )
 }

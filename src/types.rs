@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::skip_serializing_none;
 
+/// Opaque JSON object retained without claiming an exhaustive provider schema.
+pub type JsonObject = serde_json::Map<String, serde_json::Value>;
+/// Charge data with nested Split configuration and settlement details.
+pub type SplitChargeResponse = JsonObject;
+
 // ========== Split de pagamento Pix ==========
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,14 +64,6 @@ pub struct SplitConfigResponse {
     pub split: Option<SplitConfig>,
 }
 
-#[skip_serializing_none]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SplitLinkResponse {
-    pub status: String,
-    pub message: Option<String>,
-}
-
 // ========== COB - Immediate Charge (Cobrança Imediata) ==========
 
 #[skip_serializing_none]
@@ -85,8 +82,7 @@ pub struct CobPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CobCalendario {
-    pub data_de_vencimento: Option<String>,
-    pub validade_apos_vencimento: Option<i32>,
+    pub expiracao: Option<u64>,
 }
 
 #[skip_serializing_none]
@@ -127,18 +123,17 @@ pub struct CobResponse {
     pub chave: Option<String>,
     pub solicitacao_pagador: Option<String>,
     pub info_adicionais: Option<Vec<CobInfoAdicional>>,
-    pub br: Option<String>,
+    pub pix_copia_e_cola: Option<String>,
     pub status: Option<String>,
-    pub criacao_date_time: Option<String>,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CobCalendarioResponse {
-    pub criacao_date_time: Option<String>,
-    pub data_de_vencimento: Option<String>,
-    pub validade_apos_vencimento: Option<i32>,
+    pub criacao: Option<String>,
+    /// Documented examples disagree between numeric and string expiry.
+    pub expiracao: Option<serde_json::Value>,
 }
 
 // ========== COBV - Expiring Charge (Cobrança com Vencimento) ==========
@@ -149,7 +144,7 @@ pub struct CobCalendarioResponse {
 pub struct CobvPayload {
     pub calendario: CobvCalendario,
     pub devedor: Option<CobPessoa>,
-    pub valor: CobValor,
+    pub valor: CobvValor,
     pub chave: String,
     pub solicitacao_pagador: Option<String>,
     pub info_adicionais: Option<Vec<CobInfoAdicional>>,
@@ -169,45 +164,95 @@ pub struct CobvResponse {
     pub txid: String,
     pub calendario: Option<CobvCalendarioResponse>,
     pub devedor: Option<CobPessoa>,
-    pub valor: Option<CobValor>,
+    pub valor: Option<CobvValor>,
     pub chave: Option<String>,
     pub solicitacao_pagador: Option<String>,
     pub info_adicionais: Option<Vec<CobInfoAdicional>>,
-    pub br: Option<String>,
+    pub pix_copia_e_cola: Option<String>,
     pub status: Option<String>,
-    pub criacao_date_time: Option<String>,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CobvCalendarioResponse {
-    pub criacao_date_time: Option<String>,
+    pub criacao: Option<String>,
     pub data_de_vencimento: Option<String>,
     pub validade_apos_vencimento: Option<i32>,
+}
+
+/// One-page Pix charge interval and optional filters. No automatic pagination.
+#[derive(Debug, Clone)]
+pub struct PixChargeListQuery {
+    pub inicio: String,
+    pub fim: String,
+    pub cpf: Option<String>,
+    pub status: Option<String>,
+}
+
+impl PixChargeListQuery {
+    pub(crate) fn pairs(&self) -> Vec<(&str, &str)> {
+        let mut pairs = vec![("inicio", self.inicio.as_str()), ("fim", self.fim.as_str())];
+        if let Some(cpf) = &self.cpf {
+            pairs.push(("cpf", cpf));
+        }
+        if let Some(status) = &self.status {
+            pairs.push(("status", status));
+        }
+        pairs
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CobListResponse {
+    pub parametros: JsonObject,
+    pub cobs: Vec<CobResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CobvListResponse {
+    pub parametros: JsonObject,
+    pub cobs: Vec<CobvResponse>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CobvValor {
+    pub original: String,
+    pub multa: Option<JsonObject>,
+    pub juros: Option<JsonObject>,
+    pub desconto: Option<JsonObject>,
+    /// Opaque adjustment data; no provider-specific shape is asserted.
+    pub abatimento: Option<serde_json::Value>,
 }
 
 // ========== Webhook Management ==========
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WebhookPayload {
-    pub url: String,
-    pub chave: String,
+    pub webhook_url: String,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebhookResponse {
-    pub id: String,
-    pub url: String,
+    pub webhook_url: String,
     pub chave: Option<String>,
-    pub criacao_date_time: Option<String>,
+    pub criacao: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhooksListResponse {
+    pub parametros: JsonObject,
     pub webhooks: Vec<WebhookResponse>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebhookListQuery {
+    pub inicio: String,
+    pub fim: String,
 }
 
 // ========== PIX Transactions ==========
@@ -217,35 +262,48 @@ pub struct WebhooksListResponse {
 #[serde(rename_all = "camelCase")]
 pub struct PixTransactionPayload {
     pub valor: String,
-    pub chave_destino: String,
-    pub descricao: Option<String>,
-    pub idempotency_key: Option<String>,
+    pub pagador: PixSender,
+    pub favorecido: PixRecipient,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PixTransactionResponse {
-    pub id: String,
-    pub end_to_end_id: String,
-    pub valor: String,
+    pub id_envio: String,
     pub status: String,
-    pub chave_destino: Option<String>,
-    pub data_hora: Option<String>,
+    #[serde(rename = "e2eId")]
+    pub e2e_id: Option<String>,
+    pub valor: Option<String>,
+    pub horario: Option<JsonObject>,
 }
 
 #[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PixTransactionDetailResponse {
-    pub id: String,
-    pub end_to_end_id: String,
-    pub valor: String,
-    pub status: String,
-    pub chave_destino: Option<String>,
-    pub chave_origem: Option<String>,
-    pub data_hora: Option<String>,
-    pub motivo_cancelamento: Option<String>,
+    pub id_envio: Option<String>,
+    pub end_to_end_id: Option<String>,
+    pub valor: Option<String>,
+    pub status: Option<String>,
+    pub chave: Option<String>,
+    pub info_pagador: Option<String>,
+    pub horario: Option<JsonObject>,
+    pub favorecido: Option<JsonObject>,
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PixSender {
+    pub chave: String,
+    pub info_pagador: Option<String>,
+}
+
+/// Only key-based recipients are supported by this bounded send contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PixRecipient {
+    pub chave: String,
 }
 
 // ========== Billing API - Split de Pagamento ==========
@@ -818,6 +876,11 @@ pub struct CarnetParcel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CarnetHistoryRequest {
     pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CarnetResendRequest {
+    pub email: String,
 }
 
 #[skip_serializing_none]

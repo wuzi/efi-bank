@@ -1,8 +1,8 @@
 use reqwest::Method;
 
-use crate::client::Client;
+use crate::client::{Client, query_path, resource_path};
 use crate::error::Error;
-use crate::types::{CobPayload, CobResponse};
+use crate::types::{CobListResponse, CobPayload, CobResponse, PixChargeListQuery};
 
 impl Client {
     pub async fn cob_create(&self, payload: &CobPayload) -> Result<CobResponse, Error> {
@@ -10,49 +10,29 @@ impl Client {
             .await
     }
 
+    /// Create an immediate charge with a caller-supplied txid (PUT semantics).
     pub async fn cob_update(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
-        let path = format!("/v2/cob/{txid}");
+        let path = resource_path(&["v2", "cob", txid])?;
         self.send_authenticated(Method::PUT, &path, Some(payload))
             .await
     }
 
     pub async fn cob_patch(&self, txid: &str, payload: &CobPayload) -> Result<CobResponse, Error> {
-        let path = format!("/v2/cob/{txid}");
+        let path = resource_path(&["v2", "cob", txid])?;
         self.send_authenticated(Method::PATCH, &path, Some(payload))
             .await
     }
 
     pub async fn cob_get(&self, txid: &str) -> Result<CobResponse, Error> {
-        let path = format!("/v2/cob/{txid}");
-        self.send_authenticated::<serde_json::Value, CobResponse>(Method::GET, &path, None)
+        let path = resource_path(&["v2", "cob", txid])?;
+        self.send_authenticated::<(), CobResponse>(Method::GET, &path, None)
             .await
     }
 
-    pub async fn cob_list(
-        &self,
-        cpf: Option<&str>,
-        status: Option<&str>,
-        limit: Option<i32>,
-    ) -> Result<Vec<CobResponse>, Error> {
-        let mut path = String::from("/v2/cob");
-        let mut params = Vec::new();
-
-        if let Some(c) = cpf {
-            params.push(format!("cpf={c}"));
-        }
-        if let Some(s) = status {
-            params.push(format!("status={s}"));
-        }
-        if let Some(l) = limit {
-            params.push(format!("limit={l}"));
-        }
-
-        if !params.is_empty() {
-            path.push('?');
-            path.push_str(&params.join("&"));
-        }
-
-        self.send_authenticated::<serde_json::Value, Vec<CobResponse>>(Method::GET, &path, None)
+    /// Retrieve one page for the required interval; metadata is retained.
+    pub async fn cob_list(&self, query: &PixChargeListQuery) -> Result<CobListResponse, Error> {
+        let path = query_path("/v2/cob", &query.pairs());
+        self.send_authenticated::<(), CobListResponse>(Method::GET, &path, None)
             .await
     }
 }

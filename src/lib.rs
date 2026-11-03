@@ -1,3 +1,7 @@
+#![doc = include_str!("../README.md")]
+
+mod response;
+
 pub mod auth;
 pub mod billing;
 pub mod carnet;
@@ -32,12 +36,23 @@ pub use types::{
     CarnetChargePdf, CarnetCreateRequest, CarnetCustomer, CarnetData, CarnetDetailCharge,
     CarnetDetailData, CarnetDetailResponse, CarnetHistoryRequest, CarnetMetadataRequest,
     CarnetParcel, CarnetParcelNumber, CarnetParcelRequest, CarnetParcelsRequest, CarnetPdf,
-    CarnetResponse, CobCalendario, CobInfoAdicional, CobPayload, CobPessoa, CobResponse, CobValor,
-    CobvCalendario, CobvPayload, CobvResponse, PixTransactionDetailResponse, PixTransactionPayload,
-    PixTransactionResponse, SplitConfig, SplitConfigResponse, SplitFavorecido, SplitLancamento,
-    SplitLinkResponse, SplitParte, SplitPayload, SplitRepasse, WebhookPayload, WebhookResponse,
-    WebhooksListResponse,
+    CarnetResendRequest, CarnetResponse, CobCalendario, CobCalendarioResponse, CobInfoAdicional,
+    CobListResponse, CobPayload, CobPessoa, CobResponse, CobValor, CobvCalendario,
+    CobvCalendarioResponse, CobvListResponse, CobvPayload, CobvResponse, CobvValor, JsonObject,
+    PixChargeListQuery, PixRecipient, PixSender, PixTransactionDetailResponse,
+    PixTransactionPayload, PixTransactionResponse, SplitChargeResponse, SplitConfig,
+    SplitConfigResponse, SplitFavorecido, SplitLancamento, SplitParte, SplitPayload, SplitRepasse,
+    WebhookListQuery, WebhookPayload, WebhookResponse, WebhooksListResponse,
 };
 
 #[cfg(test)]
 mod transport_tests;
+
+#[cfg(test)]
+mod boundary_tests;
+
+#[cfg(test)]
+mod test_support;
+
+#[cfg(test)]
+mod protocol_tests;

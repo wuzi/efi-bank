@@ -1,23 +1,28 @@
 use reqwest::Method;
 
-use crate::client::Client;
+use crate::client::{Client, query_path, resource_path};
 use crate::error::Error;
-use crate::types::{CobvPayload, CobvResponse};
+use crate::types::{CobvListResponse, CobvPayload, CobvResponse, PixChargeListQuery};
 
 impl Client {
-    pub async fn cobv_create(&self, payload: &CobvPayload) -> Result<CobvResponse, Error> {
-        self.send_authenticated(Method::POST, "/v2/cobv", Some(payload))
+    /// Create a due-date charge with a caller-supplied txid.
+    pub async fn cobv_create(
+        &self,
+        txid: &str,
+        payload: &CobvPayload,
+    ) -> Result<CobvResponse, Error> {
+        let path = resource_path(&["v2", "cobv", txid])?;
+        self.send_authenticated(Method::PUT, &path, Some(payload))
             .await
     }
 
+    /// PUT creates with the caller txid; use PATCH for revision.
     pub async fn cobv_update(
         &self,
         txid: &str,
         payload: &CobvPayload,
     ) -> Result<CobvResponse, Error> {
-        let path = format!("/v2/cobv/{txid}");
-        self.send_authenticated(Method::PUT, &path, Some(payload))
-            .await
+        self.cobv_create(txid, payload).await
     }
 
     pub async fn cobv_patch(
@@ -25,42 +30,21 @@ impl Client {
         txid: &str,
         payload: &CobvPayload,
     ) -> Result<CobvResponse, Error> {
-        let path = format!("/v2/cobv/{txid}");
+        let path = resource_path(&["v2", "cobv", txid])?;
         self.send_authenticated(Method::PATCH, &path, Some(payload))
             .await
     }
 
     pub async fn cobv_get(&self, txid: &str) -> Result<CobvResponse, Error> {
-        let path = format!("/v2/cobv/{txid}");
-        self.send_authenticated::<serde_json::Value, CobvResponse>(Method::GET, &path, None)
+        let path = resource_path(&["v2", "cobv", txid])?;
+        self.send_authenticated::<(), CobvResponse>(Method::GET, &path, None)
             .await
     }
 
-    pub async fn cobv_list(
-        &self,
-        cpf: Option<&str>,
-        status: Option<&str>,
-        limit: Option<i32>,
-    ) -> Result<Vec<CobvResponse>, Error> {
-        let mut path = String::from("/v2/cobv");
-        let mut params = Vec::new();
-
-        if let Some(c) = cpf {
-            params.push(format!("cpf={c}"));
-        }
-        if let Some(s) = status {
-            params.push(format!("status={s}"));
-        }
-        if let Some(l) = limit {
-            params.push(format!("limit={l}"));
-        }
-
-        if !params.is_empty() {
-            path.push('?');
-            path.push_str(&params.join("&"));
-        }
-
-        self.send_authenticated::<serde_json::Value, Vec<CobvResponse>>(Method::GET, &path, None)
+    /// Retrieve one page; the provider also names the due-date array `cobs`.
+    pub async fn cobv_list(&self, query: &PixChargeListQuery) -> Result<CobvListResponse, Error> {
+        let path = query_path("/v2/cobv", &query.pairs());
+        self.send_authenticated::<(), CobvListResponse>(Method::GET, &path, None)
             .await
     }
 }

@@ -3,8 +3,9 @@ use reqwest::Method;
 use crate::client::Client;
 use crate::error::Error;
 use crate::types::{
-    BillingActionResponse, CarnetCreateRequest, CarnetDetailResponse, CarnetHistoryRequest,
-    CarnetMetadataRequest, CarnetParcelRequest, CarnetParcelsRequest, CarnetResponse,
+    BillingActionResponse, BillingChargeListQuery, BillingChargeListResponse, CarnetCreateRequest,
+    CarnetDetailResponse, CarnetHistoryRequest, CarnetMetadataRequest, CarnetParcelRequest,
+    CarnetParcelsRequest, CarnetResendRequest, CarnetResponse,
 };
 
 impl Client {
@@ -42,18 +43,21 @@ impl Client {
         .await
     }
 
+    /// List one page of carnet child charges, retaining provider params.
     pub async fn carnet_list(
         &self,
         begin_date: &str,
         end_date: &str,
-    ) -> Result<CarnetResponse, Error> {
-        let path =
-            format!("/v1/charges?begin_date={begin_date}&end_date={end_date}&charge_type=carnet");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
-            Method::GET,
-            &path,
-            None,
-        )
+    ) -> Result<BillingChargeListResponse, Error> {
+        self.billing_charges_list(&BillingChargeListQuery {
+            charge_type: "carnet".into(),
+            begin_date: begin_date.into(),
+            end_date: end_date.into(),
+            custom_id: None,
+            limit: None,
+            page: None,
+            offset: None,
+        })
         .await
     }
 
@@ -61,7 +65,7 @@ impl Client {
         &self,
         carnet_id: i64,
         payload: &CarnetMetadataRequest,
-    ) -> Result<CarnetResponse, Error> {
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/metadata");
         self.send_authenticated_billing(Method::PUT, &path, Some(payload))
             .await
@@ -72,7 +76,7 @@ impl Client {
         carnet_id: i64,
         parcel: i32,
         payload: &CarnetParcelRequest,
-    ) -> Result<CarnetResponse, Error> {
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}");
         self.send_authenticated_billing(Method::PUT, &path, Some(payload))
             .await
@@ -82,26 +86,13 @@ impl Client {
         &self,
         carnet_id: i64,
         payload: &CarnetParcelsRequest,
-    ) -> Result<CarnetResponse, Error> {
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcels");
         self.send_authenticated_billing(Method::PUT, &path, Some(payload))
             .await
     }
 
-    pub async fn carnet_cancel(&self, carnet_id: i64) -> Result<CarnetResponse, Error> {
-        let path = format!("/v1/carnet/{carnet_id}/cancel");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
-            Method::PUT,
-            &path,
-            None,
-        )
-        .await
-    }
-
-    pub async fn carnet_cancel_response(
-        &self,
-        carnet_id: i64,
-    ) -> Result<BillingActionResponse, Error> {
+    pub async fn carnet_cancel(&self, carnet_id: i64) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/cancel");
         self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
             Method::PUT,
@@ -109,26 +100,20 @@ impl Client {
             None,
         )
         .await
+    }
+
+    #[deprecated(since = "0.3.0", note = "use carnet_cancel")]
+    pub async fn carnet_cancel_response(
+        &self,
+        carnet_id: i64,
+    ) -> Result<BillingActionResponse, Error> {
+        self.carnet_cancel(carnet_id).await
     }
 
     pub async fn carnet_cancel_parcel(
         &self,
         carnet_id: i64,
         parcel: i32,
-    ) -> Result<CarnetResponse, Error> {
-        let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/cancel");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
-            Method::PUT,
-            &path,
-            None,
-        )
-        .await
-    }
-
-    pub async fn carnet_cancel_parcel_response(
-        &self,
-        carnet_id: i64,
-        parcel: i32,
     ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/cancel");
         self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
@@ -139,43 +124,49 @@ impl Client {
         .await
     }
 
-    pub async fn carnet_resend(&self, carnet_id: i64) -> Result<CarnetResponse, Error> {
+    #[deprecated(since = "0.3.0", note = "use carnet_cancel_parcel")]
+    pub async fn carnet_cancel_parcel_response(
+        &self,
+        carnet_id: i64,
+        parcel: i32,
+    ) -> Result<BillingActionResponse, Error> {
+        self.carnet_cancel_parcel(carnet_id, parcel).await
+    }
+
+    pub async fn carnet_resend(
+        &self,
+        carnet_id: i64,
+        payload: &CarnetResendRequest,
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/resend");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
-            Method::POST,
-            &path,
-            None,
-        )
-        .await
+        self.send_authenticated_billing(Method::POST, &path, Some(payload))
+            .await
     }
 
     pub async fn carnet_resend_parcel(
         &self,
         carnet_id: i64,
         parcel: i32,
-    ) -> Result<CarnetResponse, Error> {
+        payload: &CarnetResendRequest,
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/resend");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
-            Method::POST,
-            &path,
-            None,
-        )
-        .await
+        self.send_authenticated_billing(Method::POST, &path, Some(payload))
+            .await
     }
 
     pub async fn carnet_add_history(
         &self,
         carnet_id: i64,
         payload: &CarnetHistoryRequest,
-    ) -> Result<CarnetResponse, Error> {
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/history");
         self.send_authenticated_billing(Method::POST, &path, Some(payload))
             .await
     }
 
-    pub async fn carnet_settle(&self, carnet_id: i64) -> Result<CarnetResponse, Error> {
+    pub async fn carnet_settle(&self, carnet_id: i64) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/settle");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
+        self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
             Method::PUT,
             &path,
             None,
@@ -187,9 +178,9 @@ impl Client {
         &self,
         carnet_id: i64,
         parcel: i32,
-    ) -> Result<CarnetResponse, Error> {
+    ) -> Result<BillingActionResponse, Error> {
         let path = format!("/v1/carnet/{carnet_id}/parcel/{parcel}/settle");
-        self.send_authenticated_billing::<serde_json::Value, CarnetResponse>(
+        self.send_authenticated_billing::<serde_json::Value, BillingActionResponse>(
             Method::PUT,
             &path,
             None,

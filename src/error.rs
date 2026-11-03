@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     BuilderMissingField(&'static str),
     BuilderConflict(&'static str),
@@ -9,6 +10,10 @@ pub enum Error {
     Json(serde_json::Error),
     AuthUnavailable,
     EmptyResponse,
+    InvalidPath,
+    ResponseTooLarge {
+        limit: usize,
+    },
     InvalidArtifact(&'static str),
     RequestFailed {
         status: reqwest::StatusCode,
@@ -56,6 +61,10 @@ impl Display for Error {
             Self::Json(error) => write!(f, "json error: {error}"),
             Self::AuthUnavailable => write!(f, "authentication token is unavailable"),
             Self::InvalidArtifact(message) => write!(f, "invalid provider artifact: {message}"),
+            Self::InvalidPath => write!(f, "invalid path identifier"),
+            Self::ResponseTooLarge { limit } => {
+                write!(f, "response exceeds configured {limit}-byte limit")
+            }
             Self::EmptyResponse => write!(f, "received empty response from server"),
             Self::RequestFailed { status, body, .. } => {
                 write!(f, "request failed with status {status}: {body}")
