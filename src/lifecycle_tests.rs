@@ -2,98 +2,7 @@ use reqwest::StatusCode;
 
 use crate::{BillingChargeListQuery, CarnetParcelNumber, Error, WebhookPayload};
 
-mod support {
-    use std::io::{Read, Write};
-    use std::net::{TcpListener, TcpStream};
-    use std::thread::{self, JoinHandle};
-
-    use crate::Client;
-
-    pub struct Exchange {
-        pub request_line: &'static str,
-        pub status: u16,
-        pub body: &'static str,
-    }
-
-    pub struct TestServer {
-        base_url: String,
-        handle: Option<JoinHandle<()>>,
-    }
-
-    impl TestServer {
-        pub fn start(exchanges: Vec<Exchange>) -> Self {
-            Self::start_with_headers(exchanges, &[])
-        }
-
-        pub fn start_with_headers(
-            exchanges: Vec<Exchange>,
-            response_headers: &'static [(&'static str, &'static str)],
-        ) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let base_url = format!("http://{}", listener.local_addr().unwrap());
-            let handle = thread::spawn(move || {
-                for exchange in exchanges {
-                    let (mut stream, _) = listener.accept().unwrap();
-                    let request = read_request(&mut stream);
-                    assert_eq!(request.lines().next(), Some(exchange.request_line));
-                    let reason = if exchange.status >= 400 {
-                        "Error"
-                    } else {
-                        "OK"
-                    };
-                    write!(
-                        stream,
-                        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
-                        exchange.status,
-                        reason,
-                        exchange.body.len(),
-                    )
-                    .unwrap();
-                    for (name, value) in response_headers {
-                        write!(stream, "{name}: {value}\r\n").unwrap();
-                    }
-                    write!(stream, "Connection: close\r\n\r\n{}", exchange.body).unwrap();
-                }
-            });
-            Self {
-                base_url,
-                handle: Some(handle),
-            }
-        }
-
-        pub fn client(&self) -> Client {
-            Client::test_billing_client(&self.base_url)
-        }
-
-        pub fn finish(mut self) {
-            self.handle.take().unwrap().join().unwrap();
-        }
-    }
-
-    pub(super) fn read_request(stream: &mut TcpStream) -> String {
-        let mut bytes = Vec::new();
-        let mut buffer = [0; 4096];
-        loop {
-            let count = stream.read(&mut buffer).unwrap();
-            if count == 0 {
-                break;
-            }
-            bytes.extend_from_slice(&buffer[..count]);
-            if bytes.windows(4).any(|window| window == b"\r\n\r\n") {
-                break;
-            }
-        }
-        String::from_utf8(bytes).unwrap()
-    }
-
-    pub fn auth() -> Exchange {
-        Exchange {
-            request_line: "POST /v1/authorize HTTP/1.1",
-            status: 200,
-            body: r#"{"access_token":"fixture-token","expires_in":3600}"#,
-        }
-    }
-}
+use crate::test_support as support;
 
 use support::{Exchange, TestServer};
 
@@ -280,11 +189,22 @@ async fn accurate_reads_accept_documented_charge_and_carnet_shapes() {
 }
 
 #[tokio::test]
+#[allow(deprecated)]
 async fn cancellations_parse_code_only_responses() {
     let server = TestServer::start(vec![
         support::auth(),
         Exchange {
             request_line: "PUT /v1/charge/123/cancel HTTP/1.1",
+            status: 200,
+            body: r#"{"code":200}"#,
+        },
+        Exchange {
+            request_line: "PUT /v1/carnet/456/cancel HTTP/1.1",
+            status: 200,
+            body: r#"{"code":200}"#,
+        },
+        Exchange {
+            request_line: "PUT /v1/carnet/456/parcel/2/cancel HTTP/1.1",
             status: 200,
             body: r#"{"code":200}"#,
         },
@@ -318,6 +238,8 @@ async fn cancellations_parse_code_only_responses() {
             .code,
         200
     );
+    assert_eq!(client.carnet_cancel(456).await.unwrap().code, 200);
+    assert_eq!(client.carnet_cancel_parcel(456, 2).await.unwrap().code, 200);
     server.finish();
 }
 
@@ -486,43 +408,48 @@ async fn cold_401_retry_reserves_at_most_four_requests() {
 }
 
 #[tokio::test]
-async fn unauthorized_post_is_not_replayed_after_token_refresh() {
-    let server = TestServer::start(vec![
-        support::auth(),
-        Exchange {
-            request_line: "POST /v2/webhook HTTP/1.1",
-            status: 401,
-            body: r#"{"error":"expired_token"}"#,
-        },
-        support::auth(),
-        Exchange {
-            request_line: "POST /v2/webhook HTTP/1.1",
-            status: 200,
-            body: r#"{"id":"fixture-webhook","url":"https://example.com/webhook"}"#,
-        },
-    ]);
+async fn unauthorized_pix_mutation_is_not_replayed_after_token_refresh() {
+    let server = TestServer::start_with_headers(
+        vec![
+            support::auth(),
+            Exchange {
+                request_line: "PUT /v2/webhook/fixture-key HTTP/1.1",
+                status: 401,
+                body: r#"{"error":"expired_token"}"#,
+            },
+            support::auth(),
+            Exchange {
+                request_line: "PUT /v2/webhook/fixture-key HTTP/1.1",
+                status: 200,
+                body: "unspecified acknowledgement",
+            },
+        ],
+        &[("Retry-After", "42")],
+    );
 
     let client = server.client();
     let error = client
-        .webhook_create(&WebhookPayload {
-            url: "https://example.com/webhook".into(),
-            chave: "fixture-key".into(),
-        })
+        .webhook_configure(
+            "fixture-key",
+            &WebhookPayload {
+                webhook_url: "https://example.com/webhook".into(),
+            },
+        )
         .await
         .unwrap_err();
 
     assert_eq!(error.status_code(), Some(StatusCode::UNAUTHORIZED));
-    assert_eq!(
-        client
-            .webhook_create(&WebhookPayload {
-                url: "https://example.com/webhook".into(),
-                chave: "fixture-key".into(),
-            })
-            .await
-            .unwrap()
-            .id,
-        "fixture-webhook"
-    );
+    assert_eq!(error.retry_after(), Some("42"));
+    assert_eq!(error.response_body(), Some(r#"{"error":"expired_token"}"#));
+    client
+        .webhook_configure(
+            "fixture-key",
+            &WebhookPayload {
+                webhook_url: "https://example.com/webhook".into(),
+            },
+        )
+        .await
+        .unwrap();
     server.finish();
 }
 

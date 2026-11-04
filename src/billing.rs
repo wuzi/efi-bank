@@ -159,7 +159,7 @@ impl Client {
         &self,
         token: &str,
     ) -> Result<BillingNotificationResponse, Error> {
-        let path = format!("/v1/notification/{token}");
+        let path = crate::client::resource_path(&["v1", "notification", token])?;
         self.send_authenticated_billing::<serde_json::Value, BillingNotificationResponse>(
             Method::GET,
             &path,
